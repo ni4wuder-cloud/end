@@ -53,6 +53,21 @@
     font-family:'Noto Sans TC',sans-serif; font-weight:400;
     font-size:clamp(14px,2.4vw,19px); color:var(--cream-dim); margin:0; max-width:26ch; line-height:1.6;
   }
+  #captions{ margin-top:-14px; display:flex; flex-direction:column; align-items:center; }
+  #close-hint{
+    position:absolute; top:10px; right:8px; z-index:8; display:none;
+    flex-direction:column; align-items:center; gap:4px;
+  }
+  #close-hint.show{ display:flex; }
+  #close-hint svg{ width:90px; height:90px; }
+  #close-hint span{
+    font-family:'Noto Sans TC',sans-serif; font-weight:600; font-size:14px;
+    color:var(--gold); background:rgba(15,24,48,0.8); padding:4px 11px; border-radius:6px;
+    white-space:nowrap; text-align:center;
+  }
+  @keyframes nudge{ 0%,100%{ transform:translate(0,0);} 50%{ transform:translate(4px,-4px);} }
+  #close-hint.show svg{ animation: nudge 1s ease-in-out infinite; }
+  @media (prefers-reduced-motion:reduce){ #close-hint.show svg{ animation:none; } }
   .tapzone{position:absolute; top:26px; bottom:26px; width:35%; z-index:2; cursor:pointer;}
   #zone-prev{left:0;}
   #zone-next{left:35%; width:65%;}
@@ -112,14 +127,23 @@
 <body>
 <div id="app">
   <div class="batik-strip" id="strip-top"></div>
+  <div id="close-hint">
+    <svg viewBox="0 0 60 60" aria-hidden="true">
+      <path d="M8 52 Q28 22 46 10" stroke="var(--gold)" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M34 6 L48 8 L44 22" stroke="var(--gold)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>按這裡關閉</span>
+  </div>
 
   <div id="stage">
     <p class="eyebrow">Kebbi bercerita</p>
     <img id="mascot" src="images/mascot.png" alt="科摩多巨蜥吉祥物">
     <p id="mascot-caption">科摩多巨蜥 · 印尼國寶</p>
     <div id="scene-icon"></div>
-    <p id="indo-text">Halo, teman-teman!</p>
-    <p id="zh-text">哈囉,大家好!</p>
+    <div id="captions">
+      <p id="indo-text">Halo, teman-teman!</p>
+      <p id="zh-text">哈囉,大家好!</p>
+    </div>
 
     <div id="zone-prev" class="tapzone" aria-label="上一頁"></div>
     <div id="zone-next" class="tapzone" aria-label="下一頁"></div>
@@ -209,6 +233,7 @@
     });
     hintEl.style.display = idx === scenes.length - 1 ? 'none' : 'block';
     warnEl.style.display = 'none';
+    document.getElementById('close-hint').classList.remove('show');
   }
 
   var pendingTimer = null;
@@ -221,6 +246,7 @@
     zhEl.textContent = '感謝觀看,再見!';
     iconEl.innerHTML = '';
     hintEl.style.display = 'none';
+    document.getElementById('close-hint').classList.add('show');
     pendingTimer = setTimeout(function(){
       try{ window.open('', '_self'); }catch(e){}
       try{ window.close(); }catch(e){}
