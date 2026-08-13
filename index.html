@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pulau Bahasa Jawa · 爪哇島語樂園</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#182444;
+    --ink-2:#0f1830;
+    --gold:#E7B23D;
+    --terracotta:#C1442B;
+    --teal:#2C9C8F;
+    --cream:#F6EEDD;
+    --cream-dim:rgba(246,238,221,0.62);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden; overscroll-behavior:none; touch-action:manipulation;
+    background:var(--ink); color:var(--cream);
+    font-family:'Noto Sans TC','Fredoka',sans-serif;
+  }
+  #app{position:fixed; inset:0; display:flex; flex-direction:column;}
+  .batik-strip{width:100%; height:26px; flex:0 0 auto;}
+  .batik-strip svg{width:100%; height:100%; display:block;}
+  #stage{
+    position:relative; flex:1 1 auto; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:4vh 6vw; text-align:center;
+    min-height:0;
+  }
+  .eyebrow{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:clamp(11px,2vw,13px);
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--gold); margin:0 0 1.2rem;
+  }
+  #mascot{width:clamp(150px,32vw,260px); height:auto; margin-bottom:1rem; flex:0 0 auto; display:block;}
+  @keyframes bob{ 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-5px) scale(1.02);} }
+  #mascot.talking{ animation: bob .55s ease-in-out infinite; }
+  @media (prefers-reduced-motion:reduce){ #mascot.talking{ animation:none; } }
+  #scene-icon{width:clamp(40px,9vw,64px); height:auto; margin-bottom:1.4rem; color:var(--teal); flex:0 0 auto;}
+  #mascot-caption{
+    font-family:'Noto Sans TC',sans-serif; font-weight:500; font-size:clamp(10px,1.8vw,12px);
+    color:var(--gold); letter-spacing:0.04em; margin:0 0 1rem; opacity:0.85;
+  }
+  #indo-text{
+    font-family:'Fredoka',sans-serif; font-weight:600;
+    font-size:clamp(22px,4.6vw,40px); line-height:1.35; margin:0 0 1rem; max-width:20ch;
+  }
+  #zh-text{
+    font-family:'Noto Sans TC',sans-serif; font-weight:400;
+    font-size:clamp(14px,2.4vw,19px); color:var(--cream-dim); margin:0; max-width:26ch; line-height:1.6;
+  }
+  .tapzone{position:absolute; top:26px; bottom:26px; width:35%; z-index:2; cursor:pointer;}
+  #zone-prev{left:0;}
+  #zone-next{left:35%; width:65%;}
+  .ctrl-bar{
+    position:absolute; left:0; right:0; bottom:52px; z-index:5;
+    display:flex; justify-content:center; gap:8px; pointer-events:none;
+  }
+  .dot{width:7px; height:7px; border-radius:50%; background:rgba(246,238,221,0.28); transition:background .2s;}
+  .dot.active{background:var(--gold);}
+  .icon-btn{
+    position:absolute; z-index:6; width:40px; height:40px; border-radius:50%;
+    border:1.5px solid rgba(246,238,221,0.35); background:rgba(15,24,48,0.55);
+    color:var(--cream); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-family:'Fredoka',sans-serif; font-weight:600; font-size:12px;
+  }
+  .icon-btn.on{border-color:var(--gold); color:var(--gold);}
+  .icon-btn:active{background:rgba(15,24,48,0.85);}
+  #btn-mute{bottom:10px; right:10px;}
+  #btn-slow{bottom:10px; right:58px;}
+  #btn-replay{bottom:10px; right:106px;}
+  .nav-btn{
+    position:absolute; z-index:6; bottom:8px; width:52px; height:52px; border-radius:50%;
+    border:1.5px solid var(--gold); background:rgba(15,24,48,0.55); color:var(--gold);
+    display:flex; align-items:center; justify-content:center; font-size:22px; cursor:pointer;
+  }
+  #btn-prev{left:12px;}
+  #btn-next{left:70px;}
+  #hint{
+    position:absolute; bottom:96px; left:0; right:0; text-align:center;
+    font-size:12px; color:var(--cream-dim); z-index:5; pointer-events:none;
+    animation:pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:.5;} 50%{opacity:1;} }
+  #warn{
+    position:absolute; top:34px; left:50%; transform:translateX(-50%); z-index:7;
+    max-width:82%; font-size:12px; text-align:center; color:var(--terracotta);
+    background:rgba(15,24,48,0.9); border:1px solid var(--terracotta);
+    padding:6px 12px; border-radius:8px; display:none;
+  }
+  #start-overlay{
+    position:fixed; inset:0; z-index:10; background:var(--ink-2);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:6vw; cursor:pointer;
+  }
+  #start-overlay h1{
+    font-family:'Fredoka',sans-serif; font-weight:700; color:var(--gold);
+    font-size:clamp(24px,6vw,42px); margin:0 0 0.6rem;
+  }
+  #start-overlay p{color:var(--cream-dim); font-size:clamp(13px,2.6vw,17px); margin:0.2rem 0;}
+  #start-overlay .go{
+    margin-top:2rem; font-family:'Fredoka',sans-serif; font-weight:600;
+    color:var(--ink-2); background:var(--gold); padding:0.9rem 2.2rem;
+    border-radius:999px; font-size:clamp(14px,2.6vw,18px); animation:pulse 1.6s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="batik-strip" id="strip-top"></div>
+
+  <div id="stage">
+    <p class="eyebrow">Kebbi bercerita</p>
+    <img id="mascot" src="images/mascot.png" alt="科摩多巨蜥吉祥物">
+    <p id="mascot-caption">科摩多巨蜥 · 印尼國寶</p>
+    <div id="scene-icon"></div>
+    <p id="indo-text">Halo, teman-teman!</p>
+    <p id="zh-text">哈囉,大家好!</p>
+
+    <div id="zone-prev" class="tapzone" aria-label="上一頁"></div>
+    <div id="zone-next" class="tapzone" aria-label="下一頁"></div>
+    <div id="warn"></div>
+  </div>
+
+  <p id="hint">點一下畫面繼續 · Ketuk untuk lanjut</p>
+  <div class="ctrl-bar" id="dots"></div>
+
+  <div id="btn-prev" class="nav-btn" aria-label="上一頁">‹</div>
+  <div id="btn-next" class="nav-btn" aria-label="下一頁">›</div>
+  <div id="btn-replay" class="icon-btn" aria-label="重播語音" title="重播">⟳</div>
+  <div id="btn-slow" class="icon-btn" aria-label="慢速播放" title="慢速播放">0.8x</div>
+  <div id="btn-mute" class="icon-btn" aria-label="靜音切換" title="靜音">🔊</div>
+
+  <audio id="narration" preload="none"></audio>
+
+  <div class="batik-strip" id="strip-bottom"></div>
+
+  <div id="start-overlay">
+    <h1>Pulau Bahasa Jawa</h1>
+    <p>爪哇島語樂園</p>
+    <p style="margin-top:1rem;">點一下螢幕開始 · Ketuk layar untuk mulai</p>
+    <div class="go">Mulai · 開始</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function batikPattern(id, colorA, colorB){
+    return '<svg viewBox="0 0 64 26" preserveAspectRatio="xMidYMid slice">'+
+      '<defs><pattern id="'+id+'" width="32" height="26" patternUnits="userSpaceOnUse">'+
+      '<circle cx="8" cy="13" r="6" fill="none" stroke="'+colorA+'" stroke-width="1.4" opacity="0.55"/>'+
+      '<circle cx="24" cy="13" r="6" fill="none" stroke="'+colorB+'" stroke-width="1.4" opacity="0.55"/>'+
+      '<circle cx="16" cy="4" r="3" fill="'+colorA+'" opacity="0.35"/>'+
+      '<circle cx="16" cy="22" r="3" fill="'+colorB+'" opacity="0.35"/>'+
+      '</pattern></defs>'+
+      '<rect width="64" height="26" fill="url(#'+id+')"/>'+
+      '</svg>';
+  }
+  document.getElementById('strip-top').innerHTML = batikPattern('kw1','#E7B23D','#C1442B');
+  document.getElementById('strip-bottom').innerHTML = batikPattern('kw2','#2C9C8F','#E7B23D');
+
+  var icons = [
+    '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 26V12a3 3 0 0 1 6 0v10"/><path d="M20 22V9a3 3 0 0 1 6 0v13"/><path d="M26 22v-8a3 3 0 0 1 6 0v9"/><path d="M32 24v-4a3 3 0 0 1 6 0v10c0 7-5 12-12 12h-2c-5 0-8-2-11-6l-6-8a3 3 0 0 1 5-3l3 3"/></svg>',
+    '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><circle cx="24" cy="24" r="3" fill="currentColor" stroke="none"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6"/></svg>',
+    '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="20" r="10"/><path d="M24 4v4M24 26v4M24 30l4 12-4-3-4 3 4-12"/></svg>',
+    '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12c6-4 12-4 18 0v24c-6-4-12-4-18 0z"/><path d="M42 12c-6-4-12-4-18 0v24c6-4 12-4 18 0z"/></svg>',
+    '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8h20v10c0 6-4 10-10 10s-10-4-10-10z"/><path d="M14 12H8a4 4 0 0 0 4 8M34 12h6a4 4 0 0 1-4 8"/><path d="M24 28v6M17 42h14M20 34h8v4h-8z"/></svg>',
+    '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8l24 16-24 16z"/></svg>'
+  ];
+
+  var scenes = [
+    {indo:"Halo, teman-teman! Selamat datang di Pulau Bahasa Jawa!", zh:"哈囉,大家好!歡迎來到爪哇島語樂園!"},
+    {indo:"Aku Kebbi. Aku akan mengajarimu bahasa Indonesia sambil bermain! Sentuh tangan kananku untuk mulai.", zh:"我是凱比,我會一邊玩遊戲一邊教你印尼語!摸摸我的右手,開始遊戲吧。"},
+    {indo:"Aku akan memberi perintah, contohnya: Sentuh kepalamu! Kalau benar, kamu dapat poin.", zh:"我會用印尼語出題,像是「摸摸你的頭!」答對就能得分喔。"},
+    {indo:"Kadang aku akan minta kamu menunjukkan benda, seperti buku atau pensil.", zh:"有時候我也會請你找出指定的物品,像是書本或鉛筆。"},
+    {indo:"Setiap soal, kamu bisa memilih lanjut atau berhenti. Di akhir permainan, aku akan tunjukkan skormu!", zh:"每答完一題,你可以選擇繼續或結束。遊戲結束時,我會顯示你的總得分!"},
+    {indo:"Yuk, belajar bahasa Indonesia bersamaku. Ayo kita mulai sekarang!", zh:"一起跟我學印尼語吧!我們現在就開始!"}
+  ];
+
+  var idx = 0, isMuted = false, isSlow = false, started = false;
+  var indoEl = document.getElementById('indo-text');
+  var zhEl = document.getElementById('zh-text');
+  var iconEl = document.getElementById('scene-icon');
+  var mascot = document.getElementById('mascot');
+  var dotsEl = document.getElementById('dots');
+  var warnEl = document.getElementById('warn');
+  var hintEl = document.getElementById('hint');
+  var muteBtn = document.getElementById('btn-mute');
+  var slowBtn = document.getElementById('btn-slow');
+  var audioEl = document.getElementById('narration');
+
+  scenes.forEach(function(s, i){
+    var d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.id = 'dot-' + i;
+    dotsEl.appendChild(d);
+  });
+
+  function renderSlide(){
+    indoEl.textContent = scenes[idx].indo;
+    zhEl.textContent = scenes[idx].zh;
+    iconEl.innerHTML = icons[idx];
+    scenes.forEach(function(s, i){
+      document.getElementById('dot-' + i).className = 'dot' + (i === idx ? ' active' : '');
+    });
+    hintEl.style.display = idx === scenes.length - 1 ? 'none' : 'block';
+    warnEl.style.display = 'none';
+  }
+
+  var pendingTimer = null;
+  function clearPending(){
+    if(pendingTimer){ clearTimeout(pendingTimer); pendingTimer = null; }
+  }
+
+  function closeSequence(){
+    indoEl.textContent = 'Sampai jumpa!';
+    zhEl.textContent = '感謝觀看,再見!';
+    iconEl.innerHTML = '';
+    hintEl.style.display = 'none';
+    pendingTimer = setTimeout(function(){
+      try{ window.open('', '_self'); }catch(e){}
+      try{ window.close(); }catch(e){}
+    }, 1800);
+  }
+
+  audioEl.addEventListener('playing', function(){
+    mascot.classList.add('talking');
+    warnEl.style.display = 'none';
+  });
+  audioEl.addEventListener('pause', function(){ mascot.classList.remove('talking'); });
+  audioEl.addEventListener('ended', function(){
+    mascot.classList.remove('talking');
+    clearPending();
+    if(idx === scenes.length - 1){
+      closeSequence();
+    } else {
+      pendingTimer = setTimeout(function(){ goTo(idx + 1); }, 700);
+    }
+  });
+  audioEl.addEventListener('error', function(){
+    mascot.classList.remove('talking');
+    warnEl.textContent = '找不到音檔 audio/scene' + (idx + 1) + '.mp3,請確認檔案已上傳到 audio 資料夾且檔名正確';
+    warnEl.style.display = 'block';
+    clearPending();
+    pendingTimer = setTimeout(function(){
+      if(idx === scenes.length - 1){ closeSequence(); } else { goTo(idx + 1); }
+    }, 4000);
+  });
+
+  function playScene(i){
+    clearPending();
+    if(isMuted) return;
+    audioEl.pause();
+    audioEl.src = 'audio/scene' + (i + 1) + '.mp3';
+    audioEl.playbackRate = isSlow ? 0.8 : 1;
+    audioEl.currentTime = 0;
+    var p = audioEl.play();
+    if(p !== undefined){ p.catch(function(){ /* blocked until user gesture; ignored */ }); }
+  }
+
+  function goTo(next){
+    clearPending();
+    idx = (next + scenes.length) % scenes.length;
+    renderSlide();
+    playScene(idx);
+  }
+
+  document.getElementById('zone-prev').addEventListener('click', function(){ if(started) goTo(idx - 1); });
+  document.getElementById('zone-next').addEventListener('click', function(){ if(started) goTo(idx + 1); });
+  document.getElementById('btn-prev').addEventListener('click', function(e){ e.stopPropagation(); if(started) goTo(idx - 1); });
+  document.getElementById('btn-next').addEventListener('click', function(e){ e.stopPropagation(); if(started) goTo(idx + 1); });
+  document.getElementById('btn-replay').addEventListener('click', function(e){
+    e.stopPropagation();
+    if(isMuted){ isMuted = false; muteBtn.textContent = '🔊'; }
+    playScene(idx);
+  });
+  slowBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    isSlow = !isSlow;
+    slowBtn.classList.toggle('on', isSlow);
+    audioEl.playbackRate = isSlow ? 0.8 : 1;
+  });
+  muteBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? '🔈' : '🔊';
+    if(isMuted) audioEl.pause();
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(!started) return;
+    if(e.key === 'ArrowRight') goTo(idx + 1);
+    if(e.key === 'ArrowLeft') goTo(idx - 1);
+  });
+
+  document.getElementById('start-overlay').addEventListener('click', function(){
+    started = true;
+    this.style.display = 'none';
+    renderSlide();
+    playScene(0);
+  });
+})();
+</script>
+</body>
+</html>
