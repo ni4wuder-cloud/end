@@ -285,7 +285,16 @@
     audioEl.playbackRate = isSlow ? 0.8 : 1;
     audioEl.currentTime = 0;
     var p = audioEl.play();
-    if(p !== undefined){ p.catch(function(){ /* blocked until user gesture; ignored */ }); }
+    if(p !== undefined){
+      p.catch(function(){
+        warnEl.textContent = '裝置擋下了自動播放,請直接點一下畫面或按重播鍵試試';
+        warnEl.style.display = 'block';
+        clearPending();
+        pendingTimer = setTimeout(function(){
+          if(idx === scenes.length - 1){ closeSequence(); } else { goTo(idx + 1); }
+        }, 4000);
+      });
+    }
   }
 
   function goTo(next){
