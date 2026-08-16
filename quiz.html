@@ -130,12 +130,13 @@
   .overlay .btn.ghost{
     background:transparent; color:var(--gold); border:1.5px solid var(--gold);
   }
-  #mqtt-url{
+  #mqtt-url, #mqtt-user, #mqtt-pass{
     width:min(86vw,420px); font-size:14px; padding:0.7rem 0.9rem; border-radius:10px;
     border:1.5px solid rgba(246,238,221,0.3); background:rgba(246,238,221,0.06);
-    color:var(--cream); font-family:'Noto Sans TC',sans-serif; margin-top:1.4rem;
+    color:var(--cream); font-family:'Noto Sans TC',sans-serif;
   }
-  #mqtt-url::placeholder{ color:rgba(246,238,221,0.4); }
+  #mqtt-url{ margin-top:1.4rem; }
+  #mqtt-url::placeholder, #mqtt-user::placeholder, #mqtt-pass::placeholder{ color:rgba(246,238,221,0.4); }
   #conn-status{
     margin-top:0.7rem; font-size:13px; font-weight:600; min-height:1.4em;
   }
@@ -192,7 +193,9 @@
     <h1>Pulau Bahasa Jawa</h1>
     <p>觸摸問答 · Kuis Sentuh Tubuh</p>
     <p style="margin-top:0.6rem;">凱比會用印尼語出題，摸摸身體正確的部位就能得分！</p>
-    <input id="mqtt-url" type="text" placeholder="MQTT 網址（區網 ws://192.168.x.x:9001 或 ngrok wss://）" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <input id="mqtt-url" type="text" placeholder="MQTT 網址（區網 ws://、ngrok wss://，或 HiveMQ wss://...:8884/mqtt）" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <input id="mqtt-user" type="text" placeholder="帳號（本機/ngrok 不用填，HiveMQ 才需要）" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:0.6rem;">
+    <input id="mqtt-pass" type="password" placeholder="密碼（本機/ngrok 不用填，HiveMQ 才需要）" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:0.6rem;">
     <div id="conn-status"></div>
     <button class="btn" id="btn-connect">建立連線 · Sambungkan</button>
     <label id="adv-toggle-wrap" style="display:flex; align-items:center; gap:8px; margin-top:1.2rem; font-size:13px; color:var(--cream-dim); cursor:pointer;">
@@ -222,6 +225,8 @@
   var TOPIC = 'kebbi/touch';
   var TOPIC_ACTION = 'kebbi/action';
   var STORAGE_KEY = 'kebbi_quiz_mqtt_url';
+  var STORAGE_KEY_USER = 'kebbi_quiz_mqtt_user';
+  var STORAGE_KEY_PASS = 'kebbi_quiz_mqtt_pass';
 
   var PARTS = {
     head:       { cue:'Sentuh kepalamu!',        zh:'摸摸你的頭！',   name:'頭',   word:'kepalamu' },
@@ -328,6 +333,8 @@
 
   var startOverlay = document.getElementById('start-overlay');
   var urlInput = document.getElementById('mqtt-url');
+  var userInput = document.getElementById('mqtt-user');
+  var passInput = document.getElementById('mqtt-pass');
   var connStatus = document.getElementById('conn-status');
   var btnConnect = document.getElementById('btn-connect');
   var btnStart = document.getElementById('btn-start');
@@ -360,14 +367,18 @@
   var isConnected = false;
 
   var savedUrl = localStorage.getItem(STORAGE_KEY);
+  var savedUser = localStorage.getItem(STORAGE_KEY_USER);
+  var savedPass = localStorage.getItem(STORAGE_KEY_PASS);
   if (savedUrl) urlInput.value = savedUrl;
+  if (savedUser) userInput.value = savedUser;
+  if (savedPass) passInput.value = savedPass;
 
   function setConnStatus(text, cls){
     connStatus.textContent = text;
     connStatus.className = cls || '';
   }
 
-  function connectMqtt(url){
+  function connectMqtt(url, username, password){
     if (!url){
       setConnStatus('請先貼上 MQTT 網址', 'err');
       return;
@@ -381,8 +392,11 @@
     setConnStatus('連線中…', 'pending');
 
     var clientId = 'kebbiquiz-' + Math.random().toString(16).slice(2, 10);
+    var opts = { clientId: clientId, reconnectPeriod: 3000, connectTimeout: 8000 };
+    if (username) opts.username = username;
+    if (password) opts.password = password;
     try{
-      client = mqtt.connect(url, { clientId: clientId, reconnectPeriod: 3000, connectTimeout: 8000 });
+      client = mqtt.connect(url, opts);
     }catch(e){
       setConnStatus('網址格式錯誤，請確認開頭是 ws:// 或 wss://', 'err');
       return;
@@ -391,6 +405,8 @@
     client.on('connect', function(){
       isConnected = true;
       localStorage.setItem(STORAGE_KEY, url);
+      if (username) localStorage.setItem(STORAGE_KEY_USER, username);
+      if (password) localStorage.setItem(STORAGE_KEY_PASS, password);
       setConnStatus('已連線 ✅', 'ok');
       btnStart.style.display = 'inline-block';
       client.subscribe(TOPIC, function(err){
@@ -431,7 +447,7 @@
   }
 
   btnConnect.addEventListener('click', function(){
-    connectMqtt(urlInput.value.trim());
+    connectMqtt(urlInput.value.trim(), userInput.value.trim(), passInput.value);
   });
 
   gearBtn.addEventListener('click', function(){
@@ -642,13 +658,13 @@
         if (data && data.wss_url){
           urlInput.value = data.wss_url;
           setConnStatus('已自動帶入連線設定', 'ok');
-          connectMqtt(data.wss_url);
+          connectMqtt(data.wss_url, savedUser, savedPass);
         } else if (savedUrl){
-          connectMqtt(savedUrl);
+          connectMqtt(savedUrl, savedUser, savedPass);
         }
       })
       .catch(function(){
-        if (savedUrl) connectMqtt(savedUrl);
+        if (savedUrl) connectMqtt(savedUrl, savedUser, savedPass);
       });
   }
   tryAutoFillFromNgrokJson();
