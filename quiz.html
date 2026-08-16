@@ -225,6 +225,7 @@
   var QUESTION_COUNT = 6;
   var TOPIC = 'kebbi/touch';
   var TOPIC_ACTION = 'kebbi/action';
+  var TOPIC_SCORE = 'kebbi/score';
   var STORAGE_KEY = 'kebbi_quiz_mqtt_url';
   var STORAGE_KEY_USER = 'kebbi_quiz_mqtt_user';
   var STORAGE_KEY_PASS = 'kebbi_quiz_mqtt_pass';
@@ -458,7 +459,12 @@
     eggRevealed = true;
     var ratio = score / QUESTION_COUNT;
     var tier = ratio === 1 ? 'score_perfect' : (ratio >= 0.6 ? 'score_good' : 'score_tryagain');
+    var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
     publishAction(tier);
+    setTimeout(function(){
+      if (!isConnected || !client) return;
+      client.publish(TOPIC_SCORE, sentence);
+    }, ACTION_PUBLISH_DELAY_MS);
   }
 
   btnConnect.addEventListener('click', function(){
