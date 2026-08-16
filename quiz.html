@@ -440,8 +440,6 @@
   // （連線到 NUWA 雲端、重新訂閱）。網頁這邊判斷幾乎是瞬間完成，如果立刻發送，
   // 凱比很可能還沒開始監聽，訊息就直接消失收不到。故意延遲一下，讓凱比先準備好。
   var ACTION_PUBLISH_DELAY_MS = 3000;
-  // kebbi/score 接在 tier（perfect/good/tryagain）後面時，額外多等這麼久再送
-  var SCORE_STAGGER_MS = 3000;
 
   function publishAction(action){
     setTimeout(function(){
@@ -453,7 +451,10 @@
   // 「摸凱比看彩蛋」用：打完題目後不自動發送分數（會跟 clap/wrong 搶同一個監聽窗口、
   // 搶輸就永遠收不到），改成等小朋友真的摸凱比一下，藉著這次「本來就會發生、確定會被
   // 監聽到」的觸摸事件，跟拍手/安慰用同一種可靠機制夾帶送出分數等級。
+  // 這兩個延遲值只影響彩蛋這段，不影響平常答題的 clap/wrong 反應速度。
   var eggRevealed = false;
+  var EGG_TIER_DELAY_MS = 5000;
+  var EGG_SCORE_STAGGER_MS = 5000;
 
   function revealScoreEgg(part){
     if (eggRevealed) return; // 避免結算畫面上多摸幾下重複觸發
@@ -462,13 +463,16 @@
     var ratio = score / QUESTION_COUNT;
     var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
-    publishAction(tier);
+    setTimeout(function(){
+      if (!isConnected || !client) return;
+      client.publish(TOPIC_ACTION, tier);
+    }, EGG_TIER_DELAY_MS);
     // kebbi/score 接在 MQTT#2（tier）後面，要等 tier 被處理完、凱比切換過去之後才送，
     // 不能跟 tier 同時發，不然凱比還沒切換到下一步，這則就已經送完消失了
     setTimeout(function(){
       if (!isConnected || !client) return;
       client.publish(TOPIC_SCORE, sentence);
-    }, ACTION_PUBLISH_DELAY_MS + SCORE_STAGGER_MS);
+    }, EGG_TIER_DELAY_MS + EGG_SCORE_STAGGER_MS);
   }
 
   btnConnect.addEventListener('click', function(){
