@@ -440,6 +440,8 @@
   // （連線到 NUWA 雲端、重新訂閱）。網頁這邊判斷幾乎是瞬間完成，如果立刻發送，
   // 凱比很可能還沒開始監聽，訊息就直接消失收不到。故意延遲一下，讓凱比先準備好。
   var ACTION_PUBLISH_DELAY_MS = 3000;
+  // kebbi/score 接在 tier（perfect/good/tryagain）後面時，額外多等這麼久再送
+  var SCORE_STAGGER_MS = 3000;
 
   function publishAction(action){
     setTimeout(function(){
@@ -461,10 +463,12 @@
     var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
     publishAction(tier);
+    // kebbi/score 接在 MQTT#2（tier）後面，要等 tier 被處理完、凱比切換過去之後才送，
+    // 不能跟 tier 同時發，不然凱比還沒切換到下一步，這則就已經送完消失了
     setTimeout(function(){
       if (!isConnected || !client) return;
       client.publish(TOPIC_SCORE, sentence);
-    }, ACTION_PUBLISH_DELAY_MS);
+    }, ACTION_PUBLISH_DELAY_MS + SCORE_STAGGER_MS);
   }
 
   btnConnect.addEventListener('click', function(){
