@@ -443,7 +443,7 @@
   function publishAction(action){
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_ACTION, action);
+      client.publish(TOPIC_ACTION, JSON.stringify({ action: action }));
     }, ACTION_PUBLISH_DELAY_MS);
   }
 
@@ -469,7 +469,7 @@
     }
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_ACTION, tier);
+      client.publish(TOPIC_ACTION, JSON.stringify({ action: tier }));
     }, SEQUENCE_TIER_DELAY_MS);
   }
 
@@ -694,7 +694,7 @@
     var count = 0;
     function send(){
       if (!isConnected || !client){ stopFinishedBroadcast(); return; }
-      client.publish(TOPIC_ACTION, 'finished');
+      client.publish(TOPIC_ACTION, JSON.stringify({ action: 'finished' }));
       count++;
       if (count >= FINISHED_REPEAT_MAX) stopFinishedBroadcast();
     }
