@@ -211,6 +211,7 @@
     <p id="result-sub">遊戲結束</p>
     <div id="result-score">0<span> / 0</span></div>
     <p id="result-msg"></p>
+    <p id="result-egg-hint" style="font-size:13px; color:var(--gold); margin-top:0.8rem;">✨ 摸摸凱比，看看牠怎麼說！</p>
     <button class="btn" id="btn-again">再玩一次 · Main lagi</button>
     <button class="btn ghost" id="btn-reconnect-from-result">連線設定</button>
   </div>
@@ -447,30 +448,35 @@
     }, ACTION_PUBLISH_DELAY_MS);
   }
 
-  // 遊戲結束後全自動照順序送：finished（重複發送）→ kebbi/score → tier，
-  // 不用等小朋友摸凱比。時間點都是憑經驗調的，實測後可以再調整這幾個數字。
-  var SEQUENCE_SCORE_DELAY_MS = 6000;   // finishGame() 之後多久開始送 kebbi/score
-  var SEQUENCE_SCORE_REPEAT_MS = 2500;  // kebbi/score 重複間隔
-  var SEQUENCE_SCORE_REPEAT_COUNT = 2;  // kebbi/score 總共送幾次
-  var SEQUENCE_TIER_DELAY_MS = 12000;   // finishGame() 之後多久送 tier
+  // 選項 B：遊戲結束後不自動發送，等小朋友摸凱比才觸發整套
+  // finished → kebbi/score → tier，藉著「摸凱比」這個保證會被監聽到的
+  // 觸摸事件開啟監聽窗口，三則依序錯開時間送出。
+  var eggRevealed = false;
+  var EGG_FINISHED_DELAY_MS = 3000;   // 摸凱比後多久送 finished
+  var EGG_SCORE_DELAY_MS = 8000;      // 摸凱比後多久送 kebbi/score
+  var EGG_TIER_DELAY_MS = 13000;      // 摸凱比後多久送 tier
 
-  function publishScoreSequence(){
+  function revealScoreEgg(part){
+    if (eggRevealed) return; // 避免結算畫面上多摸幾下重複觸發
+    if (PART_KEYS.indexOf(part) === -1) return;
+    eggRevealed = true;
     var ratio = score / QUESTION_COUNT;
     var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
+    setTimeout(function(){
+      if (!isConnected || !client) return;
+      client.publish(TOPIC_ACTION, 'finished');
+    }, EGG_FINISHED_DELAY_MS);
     // Roflow「文字消息」比對是要求完全相同，沒辦法比對每次都不一樣的句子，
-    // 改送 JSON，Roflow 那邊用「JSON 消息」模式直接抓 score 欄位存成變數
-    var payload = JSON.stringify({ score: sentence });
-    for (var i = 0; i < SEQUENCE_SCORE_REPEAT_COUNT; i++){
-      setTimeout(function(){
-        if (!isConnected || !client) return;
-        client.publish(TOPIC_SCORE, payload);
-      }, SEQUENCE_SCORE_DELAY_MS + i * SEQUENCE_SCORE_REPEAT_MS);
-    }
+    // kebbi/score 送 JSON，Roflow 那邊用「JSON 消息」模式直接抓 score 欄位存成變數
+    setTimeout(function(){
+      if (!isConnected || !client) return;
+      client.publish(TOPIC_SCORE, JSON.stringify({ score: sentence }));
+    }, EGG_SCORE_DELAY_MS);
     setTimeout(function(){
       if (!isConnected || !client) return;
       client.publish(TOPIC_ACTION, JSON.stringify({ action: tier }));
-    }, SEQUENCE_TIER_DELAY_MS);
+    }, EGG_TIER_DELAY_MS);
   }
 
   btnConnect.addEventListener('click', function(){
@@ -567,7 +573,7 @@
     order = shuffleQuestions();
     qIndex = 0;
     score = 0;
-    stopFinishedBroadcast();
+    eggRevealed = false;
     state = 'playing';
     buildDots();
     resultOverlay.style.display = 'none';
@@ -635,6 +641,10 @@
   }
 
   function handleTouch(part){
+    if (state === 'finished'){
+      revealScoreEgg(part);
+      return;
+    }
     if (state !== 'playing') return;
     if (PART_KEYS.indexOf(part) === -1) return; // 忽略未知字串
 
@@ -675,31 +685,6 @@
     resultMsgEl.textContent = msg;
     resultOverlay.style.display = 'flex';
     playFinishSound(ratio);
-    startFinishedBroadcast();
-    publishScoreSequence();
-  }
-
-  // 遊戲結束後，每隔幾秒重複發送 finished，提高被凱比接住的機會；
-  // 開新的一局時會停止重複發送
-  var FINISHED_REPEAT_INTERVAL_MS = 2500;
-  var FINISHED_REPEAT_MAX = 2;
-  var finishedRepeatTimer = null;
-
-  function stopFinishedBroadcast(){
-    if (finishedRepeatTimer){ clearInterval(finishedRepeatTimer); finishedRepeatTimer = null; }
-  }
-
-  function startFinishedBroadcast(){
-    stopFinishedBroadcast();
-    var count = 0;
-    function send(){
-      if (!isConnected || !client){ stopFinishedBroadcast(); return; }
-      client.publish(TOPIC_ACTION, 'finished');
-      count++;
-      if (count >= FINISHED_REPEAT_MAX) stopFinishedBroadcast();
-    }
-    send();
-    finishedRepeatTimer = setInterval(send, FINISHED_REPEAT_INTERVAL_MS);
   }
 
   // 頁面載入時：優先嘗試讀 ngrok-url.json（本機跑 update-ngrok-url.sh 產生的最新網址），
