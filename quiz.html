@@ -224,6 +224,8 @@
   var QUESTION_COUNT = 6;
   var TOPIC = 'kebbi/touch';
   var TOPIC_ACTION = 'kebbi/action';
+  var TOPIC_SCORE = 'kebbi/score';
+  var TOPIC_SCORE_TIER = 'kebbi/score_tier';
   var STORAGE_KEY = 'kebbi_quiz_mqtt_url';
   var STORAGE_KEY_USER = 'kebbi_quiz_mqtt_user';
   var STORAGE_KEY_PASS = 'kebbi_quiz_mqtt_pass';
@@ -437,13 +439,31 @@
   // 凱比那邊送出觸摸訊號後，要切換到「監聽 kebbi/action」這個節點需要一點處理時間
   // （連線到 NUWA 雲端、重新訂閱）。網頁這邊判斷幾乎是瞬間完成，如果立刻發送，
   // 凱比很可能還沒開始監聽，訊息就直接消失收不到。故意延遲一下，讓凱比先準備好。
-  var ACTION_PUBLISH_DELAY_MS = 1510;
+  var ACTION_PUBLISH_DELAY_MS = 3000;
 
   function publishAction(action){
     setTimeout(function(){
       if (!isConnected || !client) return;
       client.publish(TOPIC_ACTION, action);
     }, ACTION_PUBLISH_DELAY_MS);
+  }
+
+  // 順序：finished（走 kebbi/action）→ kebbi/score → kebbi/score_tier，
+  // 三則依序錯開時間送出，讓凱比有時間依序切換監聽節點，不要同時到達
+  var SCORE_STAGGER_MS = 4000;
+
+  function publishScore(finalScore){
+    var sentence = '你這次得到 ' + finalScore + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
+    var ratio = finalScore / QUESTION_COUNT;
+    var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
+    setTimeout(function(){
+      if (!isConnected || !client) return;
+      client.publish(TOPIC_SCORE, sentence);
+    }, ACTION_PUBLISH_DELAY_MS + SCORE_STAGGER_MS);
+    setTimeout(function(){
+      if (!isConnected || !client) return;
+      client.publish(TOPIC_SCORE_TIER, tier);
+    }, ACTION_PUBLISH_DELAY_MS + SCORE_STAGGER_MS * 2);
   }
 
   btnConnect.addEventListener('click', function(){
@@ -647,6 +667,8 @@
     resultMsgEl.textContent = msg;
     resultOverlay.style.display = 'flex';
     playFinishSound(ratio);
+    publishAction('finished');
+    publishScore(score);
   }
 
   // 頁面載入時：優先嘗試讀 ngrok-url.json（本機跑 update-ngrok-url.sh 產生的最新網址），
