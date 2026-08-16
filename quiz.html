@@ -458,9 +458,7 @@
     if (PART_KEYS.indexOf(part) === -1) return;
     eggRevealed = true;
     var ratio = score / QUESTION_COUNT;
-    // 把 finished 併進同一個關鍵字，不要分開送——分開送的話兩則訊息會搶同一個
-    // kebbi/action 監聽窗口，先到的那個會讓窗口關掉，另一個永遠收不到
-    var tier = ratio === 1 ? 'finished_perfect' : (ratio >= 0.6 ? 'finished_good' : 'finished_tryagain');
+    var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
     publishAction(tier);
     setTimeout(function(){
@@ -564,6 +562,7 @@
     qIndex = 0;
     score = 0;
     eggRevealed = false;
+    stopFinishedBroadcast();
     state = 'playing';
     buildDots();
     resultOverlay.style.display = 'none';
@@ -675,6 +674,30 @@
     resultMsgEl.textContent = msg;
     resultOverlay.style.display = 'flex';
     playFinishSound(ratio);
+    startFinishedBroadcast();
+  }
+
+  // 遊戲結束後，每隔幾秒重複發送 finished，提高被凱比接住的機會；
+  // 小朋友一摸凱比觸發 revealScoreEgg 之後，或開新的一局，就停止重複發送
+  var FINISHED_REPEAT_INTERVAL_MS = 2500;
+  var FINISHED_REPEAT_MAX = 8;
+  var finishedRepeatTimer = null;
+
+  function stopFinishedBroadcast(){
+    if (finishedRepeatTimer){ clearInterval(finishedRepeatTimer); finishedRepeatTimer = null; }
+  }
+
+  function startFinishedBroadcast(){
+    stopFinishedBroadcast();
+    var count = 0;
+    function send(){
+      if (eggRevealed || !isConnected || !client){ stopFinishedBroadcast(); return; }
+      client.publish(TOPIC_ACTION, 'finished');
+      count++;
+      if (count >= FINISHED_REPEAT_MAX) stopFinishedBroadcast();
+    }
+    send();
+    finishedRepeatTimer = setInterval(send, FINISHED_REPEAT_INTERVAL_MS);
   }
 
   // 頁面載入時：優先嘗試讀 ngrok-url.json（本機跑 update-ngrok-url.sh 產生的最新網址），
