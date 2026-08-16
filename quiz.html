@@ -458,7 +458,9 @@
     if (PART_KEYS.indexOf(part) === -1) return;
     eggRevealed = true;
     var ratio = score / QUESTION_COUNT;
-    var tier = ratio === 1 ? 'score_perfect' : (ratio >= 0.6 ? 'score_good' : 'score_tryagain');
+    // 把 finished 併進同一個關鍵字，不要分開送——分開送的話兩則訊息會搶同一個
+    // kebbi/action 監聽窗口，先到的那個會讓窗口關掉，另一個永遠收不到
+    var tier = ratio === 1 ? 'finished_perfect' : (ratio >= 0.6 ? 'finished_good' : 'finished_tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
     publishAction(tier);
     setTimeout(function(){
