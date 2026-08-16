@@ -211,7 +211,6 @@
     <p id="result-sub">遊戲結束</p>
     <div id="result-score">0<span> / 0</span></div>
     <p id="result-msg"></p>
-    <p id="result-egg-hint" style="font-size:13px; color:var(--gold); margin-top:0.8rem;">✨ 摸摸凱比，看看牠怎麼說！</p>
     <button class="btn" id="btn-again">再玩一次 · Main lagi</button>
     <button class="btn ghost" id="btn-reconnect-from-result">連線設定</button>
   </div>
@@ -448,31 +447,23 @@
     }, ACTION_PUBLISH_DELAY_MS);
   }
 
-  // 「摸凱比看彩蛋」用：打完題目後不自動發送分數（會跟 clap/wrong 搶同一個監聽窗口、
-  // 搶輸就永遠收不到），改成等小朋友真的摸凱比一下，藉著這次「本來就會發生、確定會被
-  // 監聽到」的觸摸事件，跟拍手/安慰用同一種可靠機制夾帶送出分數等級。
-  // 這兩個延遲值只影響彩蛋這段，不影響平常答題的 clap/wrong 反應速度。
-  var eggRevealed = false;
-  var EGG_TIER_DELAY_MS = 5000;
-  var EGG_SCORE_STAGGER_MS = 5000;
+  // 遊戲結束後全自動照順序送：finished（重複發送）→ kebbi/score → tier，
+  // 不用等小朋友摸凱比。時間點都是憑經驗調的，實測後可以再調整這幾個數字。
+  var SEQUENCE_SCORE_DELAY_MS = 6000;   // finishGame() 之後多久送 kebbi/score
+  var SEQUENCE_TIER_DELAY_MS = 12000;   // finishGame() 之後多久送 tier
 
-  function revealScoreEgg(part){
-    if (eggRevealed) return; // 避免結算畫面上多摸幾下重複觸發
-    if (PART_KEYS.indexOf(part) === -1) return;
-    eggRevealed = true;
+  function publishScoreSequence(){
     var ratio = score / QUESTION_COUNT;
     var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_ACTION, tier);
-    }, EGG_TIER_DELAY_MS);
-    // kebbi/score 接在 MQTT#2（tier）後面，要等 tier 被處理完、凱比切換過去之後才送，
-    // 不能跟 tier 同時發，不然凱比還沒切換到下一步，這則就已經送完消失了
+      client.publish(TOPIC_SCORE, sentence);
+    }, SEQUENCE_SCORE_DELAY_MS);
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_SCORE, sentence);
-    }, EGG_TIER_DELAY_MS + EGG_SCORE_STAGGER_MS);
+      client.publish(TOPIC_ACTION, tier);
+    }, SEQUENCE_TIER_DELAY_MS);
   }
 
   btnConnect.addEventListener('click', function(){
@@ -569,7 +560,6 @@
     order = shuffleQuestions();
     qIndex = 0;
     score = 0;
-    eggRevealed = false;
     stopFinishedBroadcast();
     state = 'playing';
     buildDots();
@@ -638,10 +628,6 @@
   }
 
   function handleTouch(part){
-    if (state === 'finished'){
-      revealScoreEgg(part);
-      return;
-    }
     if (state !== 'playing') return;
     if (PART_KEYS.indexOf(part) === -1) return; // 忽略未知字串
 
@@ -683,10 +669,11 @@
     resultOverlay.style.display = 'flex';
     playFinishSound(ratio);
     startFinishedBroadcast();
+    publishScoreSequence();
   }
 
   // 遊戲結束後，每隔幾秒重複發送 finished，提高被凱比接住的機會；
-  // 小朋友一摸凱比觸發 revealScoreEgg 之後，或開新的一局，就停止重複發送
+  // 開新的一局時會停止重複發送
   var FINISHED_REPEAT_INTERVAL_MS = 2500;
   var FINISHED_REPEAT_MAX = 8;
   var finishedRepeatTimer = null;
@@ -699,7 +686,7 @@
     stopFinishedBroadcast();
     var count = 0;
     function send(){
-      if (eggRevealed || !isConnected || !client){ stopFinishedBroadcast(); return; }
+      if (!isConnected || !client){ stopFinishedBroadcast(); return; }
       client.publish(TOPIC_ACTION, 'finished');
       count++;
       if (count >= FINISHED_REPEAT_MAX) stopFinishedBroadcast();
