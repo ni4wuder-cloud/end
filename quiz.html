@@ -211,6 +211,7 @@
     <p id="result-sub">遊戲結束</p>
     <div id="result-score">0<span> / 0</span></div>
     <p id="result-msg"></p>
+    <p id="result-egg-hint" style="font-size:13px; color:var(--gold); margin-top:0.8rem;">✨ 摸摸凱比，看看牠怎麼說！</p>
     <button class="btn" id="btn-again">再玩一次 · Main lagi</button>
     <button class="btn ghost" id="btn-reconnect-from-result">連線設定</button>
   </div>
@@ -224,8 +225,6 @@
   var QUESTION_COUNT = 6;
   var TOPIC = 'kebbi/touch';
   var TOPIC_ACTION = 'kebbi/action';
-  var TOPIC_SCORE = 'kebbi/score';
-  var TOPIC_SCORE_TIER = 'kebbi/score_tier';
   var STORAGE_KEY = 'kebbi_quiz_mqtt_url';
   var STORAGE_KEY_USER = 'kebbi_quiz_mqtt_user';
   var STORAGE_KEY_PASS = 'kebbi_quiz_mqtt_pass';
@@ -448,22 +447,18 @@
     }, ACTION_PUBLISH_DELAY_MS);
   }
 
-  // 順序：finished（走 kebbi/action）→ kebbi/score → kebbi/score_tier，
-  // 三則依序錯開時間送出，讓凱比有時間依序切換監聽節點，不要同時到達
-  var SCORE_STAGGER_MS = 4000;
+  // 「摸凱比看彩蛋」用：打完題目後不自動發送分數（會跟 clap/wrong 搶同一個監聽窗口、
+  // 搶輸就永遠收不到），改成等小朋友真的摸凱比一下，藉著這次「本來就會發生、確定會被
+  // 監聽到」的觸摸事件，跟拍手/安慰用同一種可靠機制夾帶送出分數等級。
+  var eggRevealed = false;
 
-  function publishScore(finalScore){
-    var sentence = '你這次得到 ' + finalScore + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
-    var ratio = finalScore / QUESTION_COUNT;
-    var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
-    setTimeout(function(){
-      if (!isConnected || !client) return;
-      client.publish(TOPIC_SCORE, sentence);
-    }, ACTION_PUBLISH_DELAY_MS + SCORE_STAGGER_MS);
-    setTimeout(function(){
-      if (!isConnected || !client) return;
-      client.publish(TOPIC_SCORE_TIER, tier);
-    }, ACTION_PUBLISH_DELAY_MS + SCORE_STAGGER_MS * 2);
+  function revealScoreEgg(part){
+    if (eggRevealed) return; // 避免結算畫面上多摸幾下重複觸發
+    if (PART_KEYS.indexOf(part) === -1) return;
+    eggRevealed = true;
+    var ratio = score / QUESTION_COUNT;
+    var tier = ratio === 1 ? 'score_perfect' : (ratio >= 0.6 ? 'score_good' : 'score_tryagain');
+    publishAction(tier);
   }
 
   btnConnect.addEventListener('click', function(){
@@ -560,6 +555,7 @@
     order = shuffleQuestions();
     qIndex = 0;
     score = 0;
+    eggRevealed = false;
     state = 'playing';
     buildDots();
     resultOverlay.style.display = 'none';
@@ -627,6 +623,10 @@
   }
 
   function handleTouch(part){
+    if (state === 'finished'){
+      revealScoreEgg(part);
+      return;
+    }
     if (state !== 'playing') return;
     if (PART_KEYS.indexOf(part) === -1) return; // 忽略未知字串
 
@@ -667,8 +667,6 @@
     resultMsgEl.textContent = msg;
     resultOverlay.style.display = 'flex';
     playFinishSound(ratio);
-    publishAction('finished');
-    publishScore(score);
   }
 
   // 頁面載入時：優先嘗試讀 ngrok-url.json（本機跑 update-ngrok-url.sh 產生的最新網址），
