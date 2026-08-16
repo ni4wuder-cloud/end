@@ -449,17 +449,21 @@
 
   // 遊戲結束後全自動照順序送：finished（重複發送）→ kebbi/score → tier，
   // 不用等小朋友摸凱比。時間點都是憑經驗調的，實測後可以再調整這幾個數字。
-  var SEQUENCE_SCORE_DELAY_MS = 6000;   // finishGame() 之後多久送 kebbi/score
+  var SEQUENCE_SCORE_DELAY_MS = 6000;   // finishGame() 之後多久開始送 kebbi/score
+  var SEQUENCE_SCORE_REPEAT_MS = 2500;  // kebbi/score 重複間隔
+  var SEQUENCE_SCORE_REPEAT_COUNT = 2;  // kebbi/score 總共送幾次
   var SEQUENCE_TIER_DELAY_MS = 12000;   // finishGame() 之後多久送 tier
 
   function publishScoreSequence(){
     var ratio = score / QUESTION_COUNT;
     var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
-    setTimeout(function(){
-      if (!isConnected || !client) return;
-      client.publish(TOPIC_SCORE, sentence);
-    }, SEQUENCE_SCORE_DELAY_MS);
+    for (var i = 0; i < SEQUENCE_SCORE_REPEAT_COUNT; i++){
+      setTimeout(function(){
+        if (!isConnected || !client) return;
+        client.publish(TOPIC_SCORE, sentence);
+      }, SEQUENCE_SCORE_DELAY_MS + i * SEQUENCE_SCORE_REPEAT_MS);
+    }
     setTimeout(function(){
       if (!isConnected || !client) return;
       client.publish(TOPIC_ACTION, tier);
@@ -675,7 +679,7 @@
   // 遊戲結束後，每隔幾秒重複發送 finished，提高被凱比接住的機會；
   // 開新的一局時會停止重複發送
   var FINISHED_REPEAT_INTERVAL_MS = 2500;
-  var FINISHED_REPEAT_MAX = 8;
+  var FINISHED_REPEAT_MAX = 2;
   var finishedRepeatTimer = null;
 
   function stopFinishedBroadcast(){
