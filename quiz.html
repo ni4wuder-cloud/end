@@ -458,10 +458,13 @@
     var ratio = score / QUESTION_COUNT;
     var tier = ratio === 1 ? 'perfect' : (ratio >= 0.6 ? 'good' : 'tryagain');
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
+    // Roflow「文字消息」比對是要求完全相同，沒辦法比對每次都不一樣的句子，
+    // 改送 JSON，Roflow 那邊用「JSON 消息」模式直接抓 score 欄位存成變數
+    var payload = JSON.stringify({ score: sentence });
     for (var i = 0; i < SEQUENCE_SCORE_REPEAT_COUNT; i++){
       setTimeout(function(){
         if (!isConnected || !client) return;
-        client.publish(TOPIC_SCORE, sentence);
+        client.publish(TOPIC_SCORE, payload);
       }, SEQUENCE_SCORE_DELAY_MS + i * SEQUENCE_SCORE_REPEAT_MS);
     }
     setTimeout(function(){
