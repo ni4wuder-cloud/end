@@ -189,20 +189,20 @@
 
   var icons = [
     '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 26V12a3 3 0 0 1 6 0v10"/><path d="M20 22V9a3 3 0 0 1 6 0v13"/><path d="M26 22v-8a3 3 0 0 1 6 0v9"/><path d="M32 24v-4a3 3 0 0 1 6 0v10c0 7-5 12-12 12h-2c-5 0-8-2-11-6l-6-8a3 3 0 0 1 5-3l3 3"/></svg>',
-    '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><circle cx="24" cy="24" r="3" fill="currentColor" stroke="none"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6"/></svg>',
     '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="20" r="10"/><path d="M24 4v4M24 26v4M24 30l4 12-4-3-4 3 4-12"/></svg>',
     '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12c6-4 12-4 18 0v24c-6-4-12-4-18 0z"/><path d="M42 12c-6-4-12-4-18 0v24c6-4 12-4 18 0z"/></svg>',
     '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8h20v10c0 6-4 10-10 10s-10-4-10-10z"/><path d="M14 12H8a4 4 0 0 0 4 8M34 12h6a4 4 0 0 1-4 8"/><path d="M24 28v6M17 42h14M20 34h8v4h-8z"/></svg>',
     '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8l24 16-24 16z"/></svg>'
   ];
 
+  // audioFile 記錄的是原本錄音檔的編號（scene1.mp3~scene6.mp3 沒有重新錄過），
+  // 拿掉第 2 頁之後陣列順序會變，用這個欄位對回正確的錄音檔，不能只靠陣列位置算
   var scenes = [
-    {indo:"Halo, teman-teman! Selamat datang di Pulau Bahasa Jawa!", zh:"哈囉,大家好!歡迎來到爪哇島語樂園!"},
-    {indo:"Aku Kebbi. Aku akan mengajarimu bahasa Indonesia sambil bermain! Sentuh tangan kananku untuk mulai.", zh:"我是凱比,我會一邊玩遊戲一邊教你印尼語!摸摸我的右手,開始遊戲吧。"},
-    {indo:"Aku akan memberi perintah, contohnya: Sentuh kepalamu! Kalau benar, kamu dapat poin.", zh:"我會用印尼語出題,像是「摸摸你的頭!」答對就能得分喔。"},
-    {indo:"Kadang aku akan minta kamu menunjukkan benda, seperti buku atau pensil.", zh:"有時候我也會請你找出指定的物品,像是書本或鉛筆。"},
-    {indo:"Setiap soal, kamu bisa memilih lanjut atau berhenti. Di akhir permainan, aku akan tunjukkan skormu!", zh:"每答完一題,你可以選擇繼續或結束。遊戲結束時,我會顯示你的總得分!"},
-    {indo:"Yuk, belajar bahasa Indonesia bersamaku. Ayo kita mulai sekarang!", zh:"一起跟我學印尼語吧!我們現在就開始!"}
+    {indo:"Halo, teman-teman! Selamat datang di Pulau Bahasa Jawa!", zh:"哈囉,大家好!歡迎來到爪哇島語樂園!", audioFile:1},
+    {indo:"Aku akan memberi perintah, contohnya: Sentuh kepalamu! Kalau benar, kamu dapat poin.", zh:"我會用印尼語出題,像是「摸摸你的頭!」答對就能得分喔。", audioFile:3},
+    {indo:"Kadang aku akan minta kamu menunjukkan benda, seperti buku atau pensil.", zh:"有時候我也會請你找出指定的物品,像是書本或鉛筆。", audioFile:4},
+    {indo:"Setiap soal, kamu bisa memilih lanjut atau berhenti. Di akhir permainan, aku akan tunjukkan skormu!", zh:"每答完一題,你可以選擇繼續或結束。遊戲結束時,我會顯示你的總得分!", audioFile:5},
+    {indo:"Yuk, belajar bahasa Indonesia bersamaku. Ayo kita mulai sekarang!", zh:"一起跟我學印尼語吧!我們現在就開始!", audioFile:6}
   ];
 
   var idx = 0, isMuted = false, isSlow = false, started = false;
@@ -269,7 +269,7 @@
   });
   audioEl.addEventListener('error', function(){
     mascot.classList.remove('talking');
-    warnEl.textContent = '找不到音檔 audio/scene' + (idx + 1) + '.mp3,請確認檔案已上傳到 audio 資料夾且檔名正確';
+    warnEl.textContent = '找不到音檔 audio/scene' + scenes[idx].audioFile + '.mp3,請確認檔案已上傳到 audio 資料夾且檔名正確';
     warnEl.style.display = 'block';
     clearPending();
     pendingTimer = setTimeout(function(){
@@ -281,7 +281,7 @@
     clearPending();
     if(isMuted) return;
     audioEl.pause();
-    audioEl.src = 'audio/scene' + (i + 1) + '.mp3';
+    audioEl.src = 'audio/scene' + scenes[i].audioFile + '.mp3';
     audioEl.playbackRate = isSlow ? 0.8 : 1;
     audioEl.currentTime = 0;
     var p = audioEl.play();
