@@ -229,6 +229,10 @@
   var STORAGE_KEY = 'kebbi_quiz_mqtt_url';
   var STORAGE_KEY_USER = 'kebbi_quiz_mqtt_user';
   var STORAGE_KEY_PASS = 'kebbi_quiz_mqtt_pass';
+  // HiveMQ Cloud（免費方案）常駐 broker，取代本機 Mosquitto + ngrok，不用擔心隧道被關掉
+  var DEFAULT_MQTT_URL = 'wss://55e4cb271a114e0883ea581c498e9f04.s1.eu.hivemq.cloud:8884/mqtt';
+  var DEFAULT_MQTT_USER = 'kebbi002';
+  var DEFAULT_MQTT_PASS = 'dJn!cXV4UuRv5jV';
 
   var PARTS = {
     head:       { cue:'Sentuh kepalamu!',        zh:'摸摸你的頭！',   name:'頭',   word:'kepalamu' },
@@ -687,25 +691,32 @@
     playFinishSound(ratio);
   }
 
-  // 頁面載入時：優先嘗試讀 ngrok-url.json（本機跑 update-ngrok-url.sh 產生的最新網址），
-  // 抓不到（例如不同裝置開、或還沒跑腳本）就退回使用者上次記住的網址
-  function tryAutoFillFromNgrokJson(){
+  // 頁面載入時：優先嘗試讀 ngrok-url.json（只有本機跑 update-ngrok-url.sh 才會存在，
+  // GitHub Pages 上不會有這個檔案），抓不到就直接用 HiveMQ Cloud 常駐 broker 當預設，
+  // 不再依賴使用者裝置上舊的、可能已失效的連線紀錄。
+  function autoConnect(){
     fetch('ngrok-url.json?t=' + Date.now())
       .then(function(res){ return res.ok ? res.json() : null; })
       .then(function(data){
         if (data && data.wss_url){
           urlInput.value = data.wss_url;
-          setConnStatus('已自動帶入連線設定', 'ok');
+          setConnStatus('已自動帶入本機 ngrok 連線設定', 'ok');
           connectMqtt(data.wss_url, savedUser, savedPass);
-        } else if (savedUrl){
-          connectMqtt(savedUrl, savedUser, savedPass);
+        } else {
+          useDefaultCloud();
         }
       })
-      .catch(function(){
-        if (savedUrl) connectMqtt(savedUrl, savedUser, savedPass);
-      });
+      .catch(useDefaultCloud);
+
+    function useDefaultCloud(){
+      urlInput.value = DEFAULT_MQTT_URL;
+      userInput.value = DEFAULT_MQTT_USER;
+      passInput.value = DEFAULT_MQTT_PASS;
+      setConnStatus('已自動帶入雲端連線設定', 'ok');
+      connectMqtt(DEFAULT_MQTT_URL, DEFAULT_MQTT_USER, DEFAULT_MQTT_PASS);
+    }
   }
-  tryAutoFillFromNgrokJson();
+  autoConnect();
 })();
 </script>
 </body>
