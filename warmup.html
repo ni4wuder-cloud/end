@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pulau Bahasa Jawa · 暖身學習</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+  :root{
+    --ink:#182444;
+    --ink-2:#0f1830;
+    --gold:#E7B23D;
+    --terracotta:#C1442B;
+    --teal:#2C9C8F;
+    --cream:#F6EEDD;
+    --cream-dim:rgba(246,238,221,0.62);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden; overscroll-behavior:none; touch-action:manipulation;
+    background:var(--ink); color:var(--cream);
+    font-family:'Noto Sans TC','Fredoka',sans-serif;
+  }
+  #app{position:fixed; inset:0; display:flex; flex-direction:column;}
+  .batik-strip{width:100%; height:26px; flex:0 0 auto;}
+  .batik-strip svg{width:100%; height:100%; display:block;}
+
+  #stage{
+    position:relative; flex:1 1 auto; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:3vh 6vw; text-align:center;
+    min-height:0;
+  }
+  .eyebrow{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:clamp(11px,2vw,13px);
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--gold); margin:0 0 0.8rem;
+  }
+  #mascot{width:clamp(90px,16vw,140px); height:auto; margin-bottom:0.6rem; flex:0 0 auto; display:block;}
+  @keyframes bob{ 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-5px) scale(1.02);} }
+  #mascot.talking{ animation: bob .55s ease-in-out infinite; }
+  @media (prefers-reduced-motion:reduce){ #mascot.talking{ animation:none; } }
+
+  #body-diagram{width:clamp(110px,20vw,160px); height:auto; margin:0.4rem 0 1rem;}
+  .body-part{fill:rgba(246,238,221,0.06); stroke:var(--cream-dim); stroke-width:2.5; transition:stroke .25s, fill .25s, filter .25s; cursor:pointer;}
+  .body-part.target{
+    stroke:var(--gold); fill:rgba(231,178,61,0.22);
+    filter:drop-shadow(0 0 7px rgba(231,178,61,0.75));
+    animation:partpulse 1s ease-in-out infinite;
+  }
+  @keyframes partpulse{ 0%,100%{ stroke-width:2.5; } 50%{ stroke-width:4; } }
+  @media (prefers-reduced-motion:reduce){ .body-part.target{ animation:none; } }
+
+  #learn-icon{width:clamp(92px,18vw,140px); height:clamp(92px,18vw,140px); margin:0.3rem auto 1rem; cursor:pointer;}
+  #learn-icon svg{width:100%; height:100%; display:block;}
+
+  #cue-indo{
+    font-family:'Fredoka',sans-serif; font-weight:600;
+    font-size:clamp(20px,4.2vw,34px); line-height:1.3; margin:0; max-width:44vw;
+  }
+  #cue-zh{
+    font-family:'Noto Sans TC',sans-serif; font-weight:400;
+    font-size:clamp(14px,2.2vw,18px); color:var(--cream-dim); margin:0.4rem 0 0; max-width:38vw; line-height:1.5;
+  }
+  #learn-counter{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:clamp(11px,2vw,13px);
+    color:var(--cream-dim); margin:0.5rem 0 0;
+  }
+
+  .nav-row{display:flex; gap:10px; margin-top:1rem;}
+  .nav-btn{
+    font-family:'Fredoka',sans-serif; font-weight:600; border:1.5px solid var(--gold); color:var(--gold);
+    background:transparent; padding:0.55rem 1.2rem; border-radius:999px; font-size:clamp(13px,2vw,15px); cursor:pointer;
+  }
+  .nav-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .nav-btn.primary{ background:var(--gold); color:var(--ink-2); }
+
+  #hud{
+    position:absolute; top:10px; left:0; right:0; z-index:6;
+    display:flex; align-items:center; justify-content:space-between; padding:0 12px;
+  }
+  #gear-btn, #mute-btn{
+    width:36px; height:36px; border-radius:50%; border:1.5px solid rgba(246,238,221,0.35);
+    background:rgba(15,24,48,0.55); color:var(--cream); display:flex; align-items:center;
+    justify-content:center; cursor:pointer; font-size:16px;
+  }
+  #mute-btn.muted{ opacity:0.5; }
+
+  .overlay{
+    position:fixed; inset:0; z-index:10; background:var(--ink-2);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:6vw; overflow-y:auto;
+  }
+  .overlay h1{
+    font-family:'Fredoka',sans-serif; font-weight:700; color:var(--gold);
+    font-size:clamp(22px,5.4vw,38px); margin:0 0 0.4rem;
+  }
+  .overlay p{color:var(--cream-dim); font-size:clamp(13px,2.4vw,16px); margin:0.2rem 0;}
+  .overlay .btn{
+    margin-top:1.2rem; font-family:'Fredoka',sans-serif; font-weight:600;
+    color:var(--ink-2); background:var(--gold); padding:0.85rem 2.1rem;
+    border-radius:999px; font-size:clamp(14px,2.4vw,17px); border:none; cursor:pointer;
+    text-decoration:none; display:inline-block;
+  }
+  .overlay .btn:disabled{ background:rgba(231,178,61,0.35); cursor:not-allowed; }
+  .overlay .btn.ghost{
+    background:transparent; color:var(--gold); border:1.5px solid var(--gold);
+  }
+  #mqtt-url, #mqtt-user, #mqtt-pass{
+    width:min(86vw,420px); font-size:14px; padding:0.7rem 0.9rem; border-radius:10px;
+    border:1.5px solid rgba(246,238,221,0.3); background:rgba(246,238,221,0.06);
+    color:var(--cream); font-family:'Noto Sans TC',sans-serif;
+  }
+  #mqtt-url{ margin-top:1.4rem; }
+  #mqtt-url::placeholder, #mqtt-user::placeholder, #mqtt-pass::placeholder{ color:rgba(246,238,221,0.4); }
+  #conn-status{
+    margin-top:0.7rem; font-size:13px; font-weight:600; min-height:1.4em;
+  }
+  #conn-status.ok{ color:var(--teal); }
+  #conn-status.err{ color:var(--terracotta); }
+  #conn-status.pending{ color:var(--gold); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="batik-strip" id="strip-top"></div>
+
+  <div id="stage">
+    <div id="hud">
+      <div id="gear-btn" aria-label="連線設定" title="連線設定">⚙</div>
+      <div id="mute-btn" aria-label="靜音切換" title="靜音切換">🔊</div>
+    </div>
+
+    <p class="eyebrow" id="eyebrow-label">Belajar</p>
+    <img id="mascot" src="images/mascot.png" alt="科摩多巨蜥吉祥物">
+
+    <svg id="body-diagram" viewBox="0 0 120 170" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle id="part-head" class="body-part" cx="60" cy="30" r="20"/>
+      <path id="part-chest" class="body-part" d="M40 62 h40 a10 10 0 0 1 10 10 v40 a10 10 0 0 1 -10 10 h-40 a10 10 0 0 1 -10 -10 v-40 a10 10 0 0 1 10 -10 z"/>
+      <path id="part-left" class="body-part" d="M40 68 L14 90 a9 9 0 0 0 12 13 l20 -18"/>
+      <path id="part-right" class="body-part" d="M80 68 L106 90 a9 9 0 0 1 -12 13 l-20 -18"/>
+    </svg>
+
+    <div id="learn-icon" style="display:none;"></div>
+
+    <p id="cue-indo">…</p>
+    <p id="cue-zh">…</p>
+    <p id="learn-counter"></p>
+
+    <div class="nav-row" id="nav-row">
+      <button class="nav-btn" id="btn-prev">‹ 上一個</button>
+      <button class="nav-btn primary" id="btn-next">下一個 ›</button>
+    </div>
+  </div>
+
+  <div class="batik-strip" id="strip-bottom"></div>
+
+  <!-- 連線面板 / 開場畫面 -->
+  <div class="overlay" id="start-overlay">
+    <h1>Pulau Bahasa Jawa</h1>
+    <p>暖身學習 · Pemanasan</p>
+    <p style="margin-top:0.6rem;">帶孩子先認識身體部位和小物品的印尼語單字，教完之後再去玩正式問答遊戲！</p>
+    <input id="mqtt-url" type="text" placeholder="MQTT 網址（區網 ws://、ngrok wss://，或 HiveMQ wss://...:8884/mqtt）" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <input id="mqtt-user" type="text" placeholder="帳號（本機/ngrok 不用填，HiveMQ 才需要）" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:0.6rem;">
+    <input id="mqtt-pass" type="password" placeholder="密碼（本機/ngrok 不用填，HiveMQ 才需要）" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:0.6rem;">
+    <div id="conn-status"></div>
+    <button class="btn" id="btn-connect">建立連線 · Sambungkan</button>
+    <button class="btn" id="btn-start" style="display:none;">開始暖身 · Mulai!</button>
+  </div>
+
+  <!-- 結束畫面 -->
+  <div class="overlay" id="result-overlay" style="display:none;">
+    <h1>Pemanasan Selesai!</h1>
+    <p>暖身學習完成！</p>
+    <p id="result-msg"></p>
+    <button class="btn" id="btn-again">再學一次 · Ulangi</button>
+    <a class="btn ghost" id="btn-to-quiz" href="quiz.html">前往正式問答 »</a>
+    <button class="btn ghost" id="btn-reconnect-from-result">連線設定</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------------------------------------------------------------------
+  // 跟 quiz.html 共用同一個 kebbi/touch topic，Roflow 端不用另外設定。
+  // 這頁純粹是「教學」：摸一下凱比（或點畫面）＝翻到下一張學習卡，
+  // 沒有對錯判斷、沒有計分，正式的問答留給 quiz.html。
+  // ---------------------------------------------------------------------
+  var TOPIC = 'kebbi/touch';
+  var STORAGE_KEY = 'kebbi_quiz_mqtt_url';
+  var STORAGE_KEY_USER = 'kebbi_quiz_mqtt_user';
+  var STORAGE_KEY_PASS = 'kebbi_quiz_mqtt_pass';
+  // 跟 quiz.html 用同一組 HiveMQ Cloud 常駐 broker，部署到 GitHub Pages 後直接可用
+  var DEFAULT_MQTT_URL = 'wss://55e4cb271a114e0883ea581c498e9f04.s1.eu.hivemq.cloud:8884/mqtt';
+  var DEFAULT_MQTT_USER = 'kebbi002';
+  var DEFAULT_MQTT_PASS = 'dJn!cXV4UuRv5jV';
+
+  var BODY = {
+    head:       { indoWord:'Kepala',      sentence:'Ini kepalamu.',      zhSentence:'這是你的頭。' },
+    chest:      { indoWord:'Perut',       sentence:'Ini perutmu.',       zhSentence:'這是你的肚子。' },
+    left_hand:  { indoWord:'Tangan kiri', sentence:'Ini tangan kirimu.', zhSentence:'這是你的左手。' },
+    right_hand: { indoWord:'Tangan kanan',sentence:'Ini tangan kananmu.',zhSentence:'這是你的右手。' }
+  };
+  var BODY_KEYS = Object.keys(BODY);
+  var PART_TO_DIAGRAM = { head:'part-head', chest:'part-chest', left_hand:'part-left', right_hand:'part-right' };
+  var LEARN_BODY_ORDER = ['head', 'chest', 'left_hand', 'right_hand'];
+
+  // 沒有精準對應的 emoji（尤其尺、橡皮擦、水壺），統一改用手繪風格的簡單 SVG 圖示，
+  // 風格跟 body-diagram 一致（描邊用 --cream，重點色塊用 --gold/--terracotta/--teal）
+  var ICON = {
+    buku:   '<svg viewBox="0 0 64 64"><path d="M32 16C26 10 14 9 7 12v38c7-3 19-2 25 4 6-6 18-7 25-4V12c-7-3-19-2-25 4Z" fill="rgba(231,178,61,0.25)" stroke="var(--cream)" stroke-width="3" stroke-linejoin="round"/><path d="M32 16v38" stroke="var(--cream)" stroke-width="3"/></svg>',
+    pensil: '<svg viewBox="0 0 64 64"><rect x="20" y="6" width="24" height="12" rx="2" fill="var(--terracotta)" stroke="var(--cream)" stroke-width="3"/><rect x="20" y="18" width="24" height="26" fill="rgba(231,178,61,0.25)" stroke="var(--cream)" stroke-width="3"/><path d="M20 44 L32 58 L44 44 Z" fill="none" stroke="var(--cream)" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="52" r="2" fill="var(--cream)"/></svg>',
+    topi:   '<svg viewBox="0 0 64 64"><path d="M12 34a20 16 0 0 1 40 0" fill="rgba(231,178,61,0.25)" stroke="var(--cream)" stroke-width="3" stroke-linecap="round"/><path d="M6 34h30" stroke="var(--cream)" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="20" r="3" fill="var(--gold)"/></svg>',
+    bola:   '<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="rgba(231,178,61,0.18)" stroke="var(--cream)" stroke-width="3"/><path d="M32 8v48M8 32h48M16 16l32 32M48 16 16 48" stroke="var(--cream)" stroke-width="1.4" opacity="0.45"/><path d="M32 20l7 5-3 8h-8l-3-8Z" fill="var(--gold)"/></svg>',
+    tas:    '<svg viewBox="0 0 64 64"><rect x="14" y="18" width="36" height="38" rx="10" fill="rgba(231,178,61,0.18)" stroke="var(--cream)" stroke-width="3"/><path d="M22 18v-4a10 10 0 0 1 20 0v4" fill="none" stroke="var(--cream)" stroke-width="3"/><rect x="24" y="32" width="16" height="14" rx="4" fill="var(--gold)"/></svg>',
+    sepatu: '<svg viewBox="0 0 64 64"><path d="M10 44c0-10 6-16 14-18l6-4c4-2 8-2 10 2l4 8c6 2 14 4 18 8 2 2 2 6-2 6H12c-2 0-2-1-2-2Z" fill="rgba(231,178,61,0.2)" stroke="var(--cream)" stroke-width="3" stroke-linejoin="round"/><path d="M10 44h50" stroke="var(--gold)" stroke-width="4"/></svg>',
+    penggaris: '<svg viewBox="0 0 64 64"><rect x="6" y="24" width="52" height="16" rx="2" fill="rgba(231,178,61,0.18)" stroke="var(--cream)" stroke-width="3"/><g stroke="var(--cream)" stroke-width="2"><line x1="14" y1="24" x2="14" y2="32"/><line x1="22" y1="24" x2="22" y2="30"/><line x1="30" y1="24" x2="30" y2="32"/><line x1="38" y1="24" x2="38" y2="30"/><line x1="46" y1="24" x2="46" y2="32"/><line x1="54" y1="24" x2="54" y2="30"/></g></svg>',
+    penghapus: '<svg viewBox="0 0 64 64"><rect x="12" y="20" width="40" height="24" rx="5" fill="rgba(231,178,61,0.18)" stroke="var(--cream)" stroke-width="3"/><rect x="12" y="20" width="14" height="24" rx="5" fill="var(--terracotta)" opacity="0.75"/></svg>',
+    ponsel: '<svg viewBox="0 0 64 64"><rect x="18" y="6" width="28" height="52" rx="6" fill="rgba(231,178,61,0.18)" stroke="var(--cream)" stroke-width="3"/><rect x="22" y="12" width="20" height="34" rx="2" fill="var(--gold)" opacity="0.35"/><circle cx="32" cy="51" r="2.4" fill="var(--cream)"/></svg>',
+    botol:  '<svg viewBox="0 0 64 64"><rect x="26" y="6" width="12" height="8" rx="2" fill="var(--gold)"/><path d="M22 16h20l3 6v34a4 4 0 0 1-4 4H23a4 4 0 0 1-4-4V22Z" fill="rgba(231,178,61,0.18)" stroke="var(--cream)" stroke-width="3" stroke-linejoin="round"/><rect x="19" y="36" width="26" height="14" fill="var(--teal)" opacity="0.35"/></svg>'
+  };
+  var OBJECTS = {
+    buku:      { icon:ICON.buku,      indoWord:'Buku',        sentence:'Ini buku.',        zhSentence:'這是書本。' },
+    pensil:    { icon:ICON.pensil,    indoWord:'Pensil',      sentence:'Ini pensil.',      zhSentence:'這是鉛筆。' },
+    topi:      { icon:ICON.topi,      indoWord:'Topi',        sentence:'Ini topi.',        zhSentence:'這是帽子。' },
+    bola:      { icon:ICON.bola,      indoWord:'Bola',        sentence:'Ini bola.',        zhSentence:'這是球。' },
+    tas:       { icon:ICON.tas,       indoWord:'Tas',         sentence:'Ini tas.',         zhSentence:'這是背包。' },
+    sepatu:    { icon:ICON.sepatu,    indoWord:'Sepatu',      sentence:'Ini sepatu.',      zhSentence:'這是鞋子。' },
+    penggaris: { icon:ICON.penggaris, indoWord:'Penggaris',   sentence:'Ini penggaris.',   zhSentence:'這是尺。' },
+    penghapus: { icon:ICON.penghapus, indoWord:'Penghapus',   sentence:'Ini penghapus.',   zhSentence:'這是橡皮擦。' },
+    ponsel:    { icon:ICON.ponsel,    indoWord:'Ponsel',      sentence:'Ini ponsel.',      zhSentence:'這是手機。' },
+    botol:     { icon:ICON.botol,     indoWord:'Botol minum', sentence:'Ini botol minum.', zhSentence:'這是水壺。' }
+  };
+  var LEARN_OBJECT_ORDER = Object.keys(OBJECTS);
+
+  // ---------------------------------------------------------------------
+  // 聲音：只用瀏覽器內建語音合成唸印尼語（跟 quiz.html 共用同一個靜音開關）
+  // ---------------------------------------------------------------------
+  var SOUND_KEY = 'kebbi_quiz_muted';
+  var muted = localStorage.getItem(SOUND_KEY) === '1';
+
+  function speak(text, lang){
+    if (muted) return;
+    if (!('speechSynthesis' in window)) return;
+    try{
+      window.speechSynthesis.cancel();
+      var utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang || 'id-ID';
+      utter.rate = 0.9;
+      window.speechSynthesis.speak(utter);
+    }catch(e){}
+  }
+
+  // ---------------------------------------------------------------------
+  // 裝飾用蠟染花紋（比照 quiz.html）
+  // ---------------------------------------------------------------------
+  function batikPattern(id, colorA, colorB){
+    return '<svg viewBox="0 0 64 26" preserveAspectRatio="xMidYMid slice">'+
+      '<defs><pattern id="'+id+'" width="32" height="26" patternUnits="userSpaceOnUse">'+
+      '<circle cx="8" cy="13" r="6" fill="none" stroke="'+colorA+'" stroke-width="1.4" opacity="0.55"/>'+
+      '<circle cx="24" cy="13" r="6" fill="none" stroke="'+colorB+'" stroke-width="1.4" opacity="0.55"/>'+
+      '<circle cx="16" cy="4" r="3" fill="'+colorA+'" opacity="0.35"/>'+
+      '<circle cx="16" cy="22" r="3" fill="'+colorB+'" opacity="0.35"/>'+
+      '</pattern></defs>'+
+      '<rect width="64" height="26" fill="url(#'+id+')"/>'+
+      '</svg>';
+  }
+  document.getElementById('strip-top').innerHTML = batikPattern('kw1', '#E7B23D', '#C1442B');
+  document.getElementById('strip-bottom').innerHTML = batikPattern('kw2', '#2C9C8F', '#E7B23D');
+
+  // ---------------------------------------------------------------------
+  // DOM 參照
+  // ---------------------------------------------------------------------
+  var mascot = document.getElementById('mascot');
+  var eyebrowLabel = document.getElementById('eyebrow-label');
+  var cueIndo = document.getElementById('cue-indo');
+  var cueZh = document.getElementById('cue-zh');
+  var learnCounter = document.getElementById('learn-counter');
+  var btnPrev = document.getElementById('btn-prev');
+  var btnNext = document.getElementById('btn-next');
+  var bodyDiagram = document.getElementById('body-diagram');
+  var learnIconEl = document.getElementById('learn-icon');
+
+  var startOverlay = document.getElementById('start-overlay');
+  var urlInput = document.getElementById('mqtt-url');
+  var userInput = document.getElementById('mqtt-user');
+  var passInput = document.getElementById('mqtt-pass');
+  var connStatus = document.getElementById('conn-status');
+  var btnConnect = document.getElementById('btn-connect');
+  var btnStart = document.getElementById('btn-start');
+  var gearBtn = document.getElementById('gear-btn');
+  var muteBtn = document.getElementById('mute-btn');
+
+  function renderMuteBtn(){
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+    muteBtn.classList.toggle('muted', muted);
+  }
+  renderMuteBtn();
+  muteBtn.addEventListener('click', function(){
+    muted = !muted;
+    localStorage.setItem(SOUND_KEY, muted ? '1' : '0');
+    renderMuteBtn();
+    if (muted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  });
+
+  var resultOverlay = document.getElementById('result-overlay');
+  var resultMsgEl = document.getElementById('result-msg');
+  var btnAgain = document.getElementById('btn-again');
+  var btnReconnectFromResult = document.getElementById('btn-reconnect-from-result');
+
+  // ---------------------------------------------------------------------
+  // MQTT 連線（跟 quiz.html 共用連線資訊，同一個瀏覽器切換頁面不用重填）
+  // ---------------------------------------------------------------------
+  var client = null;
+  var isConnected = false;
+
+  var savedUrl = localStorage.getItem(STORAGE_KEY);
+  var savedUser = localStorage.getItem(STORAGE_KEY_USER);
+  var savedPass = localStorage.getItem(STORAGE_KEY_PASS);
+  if (savedUrl) urlInput.value = savedUrl;
+  if (savedUser) userInput.value = savedUser;
+  if (savedPass) passInput.value = savedPass;
+
+  function setConnStatus(text, cls){
+    connStatus.textContent = text;
+    connStatus.className = cls || '';
+  }
+
+  function connectMqtt(url, username, password){
+    if (!url){
+      setConnStatus('請先貼上 MQTT 網址', 'err');
+      return;
+    }
+    if (client){
+      try{ client.end(true); }catch(e){}
+      client = null;
+    }
+    isConnected = false;
+    btnStart.style.display = 'none';
+    setConnStatus('連線中…', 'pending');
+
+    var clientId = 'kebbiwarmup-' + Math.random().toString(16).slice(2, 10);
+    var opts = { clientId: clientId, reconnectPeriod: 3000, connectTimeout: 8000 };
+    if (username) opts.username = username;
+    if (password) opts.password = password;
+    try{
+      client = mqtt.connect(url, opts);
+    }catch(e){
+      setConnStatus('網址格式錯誤，請確認開頭是 ws:// 或 wss://', 'err');
+      return;
+    }
+
+    client.on('connect', function(){
+      isConnected = true;
+      localStorage.setItem(STORAGE_KEY, url);
+      if (username) localStorage.setItem(STORAGE_KEY_USER, username);
+      if (password) localStorage.setItem(STORAGE_KEY_PASS, password);
+      setConnStatus('已連線 ✅', 'ok');
+      btnStart.style.display = 'inline-block';
+      client.subscribe(TOPIC, function(err){
+        if (err) setConnStatus('已連線，但訂閱失敗：' + err.message, 'err');
+      });
+    });
+
+    client.on('reconnect', function(){
+      setConnStatus('連線中斷，正在重試…', 'pending');
+    });
+
+    client.on('close', function(){
+      if (isConnected){ setConnStatus('已斷線，正在重試…', 'pending'); }
+    });
+
+    client.on('error', function(err){
+      isConnected = false;
+      setConnStatus('連線失敗，請確認網址正確（區網要同一個 Wi-Fi，或 ngrok 網址是否過期）', 'err');
+    });
+
+    client.on('message', function(topic, payloadBuffer){
+      if (topic !== TOPIC) return;
+      var part = payloadBuffer.toString().trim();
+      if (BODY_KEYS.indexOf(part) === -1) return; // 忽略未知字串
+      goNext(); // 教學階段：摸凱比任何一個部位＝翻下一張
+    });
+  }
+
+  btnConnect.addEventListener('click', function(){
+    connectMqtt(urlInput.value.trim(), userInput.value.trim(), passInput.value);
+  });
+  gearBtn.addEventListener('click', function(){
+    startOverlay.style.display = 'flex';
+  });
+  btnReconnectFromResult.addEventListener('click', function(){
+    resultOverlay.style.display = 'none';
+    startOverlay.style.display = 'flex';
+  });
+
+  // ---------------------------------------------------------------------
+  // 狀態機：learn-body → learn-object → done（純教學，沒有問答/計分）
+  // ---------------------------------------------------------------------
+  var phase = 'learn-body';
+  var learnIndex = 0;
+
+  function setTargetDiagram(part){
+    BODY_KEYS.forEach(function(k){
+      document.getElementById(PART_TO_DIAGRAM[k]).classList.remove('target');
+    });
+    if (part) document.getElementById(PART_TO_DIAGRAM[part]).classList.add('target');
+  }
+
+  function setPhase(p){
+    phase = p;
+    bodyDiagram.style.display = (p === 'learn-body') ? 'block' : 'none';
+    learnIconEl.style.display = (p === 'learn-object') ? 'block' : 'none';
+    eyebrowLabel.textContent = (p === 'learn-body') ? 'Belajar · 認識身體部位' : 'Belajar · 認識小物品';
+  }
+
+  // ---- 學習：身體部位 ----
+  function renderLearnBody(){
+    var info = BODY[LEARN_BODY_ORDER[learnIndex]];
+    setTargetDiagram(LEARN_BODY_ORDER[learnIndex]);
+    cueIndo.textContent = info.sentence;
+    cueZh.textContent = info.zhSentence;
+    learnCounter.textContent = (learnIndex + 1) + ' / ' + LEARN_BODY_ORDER.length;
+    btnPrev.disabled = learnIndex === 0;
+    btnNext.textContent = (learnIndex === LEARN_BODY_ORDER.length - 1) ? '下一關：認識小物品 ›' : '下一個 ›';
+    mascot.classList.add('talking');
+    speak(info.sentence);
+  }
+
+  // ---- 學習：小物品 ----
+  function renderLearnObject(){
+    var info = OBJECTS[LEARN_OBJECT_ORDER[learnIndex]];
+    learnIconEl.innerHTML = info.icon;
+    cueIndo.textContent = info.sentence;
+    cueZh.textContent = info.zhSentence;
+    learnCounter.textContent = (learnIndex + 1) + ' / ' + LEARN_OBJECT_ORDER.length;
+    btnPrev.disabled = learnIndex === 0;
+    btnNext.textContent = (learnIndex === LEARN_OBJECT_ORDER.length - 1) ? '完成暖身 · Selesai ✓' : '下一個 ›';
+    mascot.classList.add('talking');
+    speak(info.sentence);
+  }
+
+  function goNext(){
+    if (phase === 'learn-body'){
+      if (learnIndex < LEARN_BODY_ORDER.length - 1){
+        learnIndex++;
+        renderLearnBody();
+      } else {
+        learnIndex = 0;
+        setPhase('learn-object');
+        renderLearnObject();
+      }
+    } else if (phase === 'learn-object'){
+      if (learnIndex < LEARN_OBJECT_ORDER.length - 1){
+        learnIndex++;
+        renderLearnObject();
+      } else {
+        finishWarmup();
+      }
+    }
+  }
+  function goPrev(){
+    if (phase === 'learn-body'){
+      if (learnIndex > 0){
+        learnIndex--;
+        renderLearnBody();
+      }
+    } else if (phase === 'learn-object'){
+      if (learnIndex > 0){
+        learnIndex--;
+        renderLearnObject();
+      } else {
+        learnIndex = LEARN_BODY_ORDER.length - 1;
+        setPhase('learn-body');
+        renderLearnBody();
+      }
+    }
+  }
+  btnNext.addEventListener('click', goNext);
+  btnPrev.addEventListener('click', goPrev);
+
+  function finishWarmup(){
+    phase = 'done';
+    mascot.classList.remove('talking');
+    resultMsgEl.textContent = '已經認識了 ' + LEARN_BODY_ORDER.length + ' 個身體部位、' +
+      LEARN_OBJECT_ORDER.length + ' 個小物品！準備好了嗎？來挑戰正式問答吧！';
+    resultOverlay.style.display = 'flex';
+  }
+
+  // 手動點擊備援：沒接凱比時，直接點畫面上的身體部位圖 / 小物品圖示也能翻頁
+  BODY_KEYS.forEach(function(k){
+    document.getElementById(PART_TO_DIAGRAM[k]).addEventListener('click', function(){
+      if (phase === 'learn-body' || phase === 'learn-object') goNext();
+    });
+  });
+  learnIconEl.addEventListener('click', function(){
+    if (phase === 'learn-object') goNext();
+  });
+
+  function startWarmup(){
+    phase = 'learn-body';
+    learnIndex = 0;
+    startOverlay.style.display = 'none';
+    resultOverlay.style.display = 'none';
+    setPhase('learn-body');
+    renderLearnBody();
+  }
+
+  btnStart.addEventListener('click', function(){
+    if (!isConnected){
+      setConnStatus('請先完成連線再開始', 'err');
+      return;
+    }
+    startWarmup();
+  });
+  btnAgain.addEventListener('click', function(){
+    startWarmup();
+  });
+
+  // 頁面載入時：優先讀 ngrok-url.json（只有本機開發時才有），沒有就用 HiveMQ 雲端預設值
+  function autoConnect(){
+    fetch('ngrok-url.json?t=' + Date.now())
+      .then(function(res){ return res.ok ? res.json() : null; })
+      .then(function(data){
+        if (data && data.wss_url){
+          urlInput.value = data.wss_url;
+          setConnStatus('已自動帶入本機 ngrok 連線設定', 'ok');
+          connectMqtt(data.wss_url, savedUser, savedPass);
+        } else {
+          useDefaultCloud();
+        }
+      })
+      .catch(useDefaultCloud);
+
+    function useDefaultCloud(){
+      urlInput.value = DEFAULT_MQTT_URL;
+      userInput.value = DEFAULT_MQTT_USER;
+      passInput.value = DEFAULT_MQTT_PASS;
+      setConnStatus('已自動帶入雲端連線設定', 'ok');
+      connectMqtt(DEFAULT_MQTT_URL, DEFAULT_MQTT_USER, DEFAULT_MQTT_PASS);
+    }
+  }
+  autoConnect();
+})();
+</script>
+</body>
+</html>
