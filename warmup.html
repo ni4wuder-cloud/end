@@ -153,6 +153,8 @@
       <button class="nav-btn" id="btn-prev">‹ 上一個</button>
       <button class="nav-btn primary" id="btn-next">下一個 ›</button>
     </div>
+
+    <audio id="narration" preload="none"></audio>
   </div>
 
   <div class="batik-strip" id="strip-bottom"></div>
@@ -253,6 +255,25 @@
     }catch(e){}
   }
 
+  // 主要語音改用預錄好的印尼語音檔（凱比的螢幕不支援瀏覽器語音合成），
+  // 音檔缺檔或播放失敗時才退回 speechSynthesis 當備援
+  var narrationEl = document.getElementById('narration');
+  narrationEl.addEventListener('playing', function(){ mascot.classList.add('talking'); });
+  narrationEl.addEventListener('pause', function(){ mascot.classList.remove('talking'); });
+  narrationEl.addEventListener('ended', function(){ mascot.classList.remove('talking'); });
+
+  function playNarration(src, fallbackText){
+    if (muted) return;
+    try{
+      narrationEl.onerror = function(){ speak(fallbackText); };
+      narrationEl.pause();
+      narrationEl.src = src;
+      narrationEl.currentTime = 0;
+      var p = narrationEl.play();
+      if (p && p.catch) p.catch(function(){});
+    }catch(e){ speak(fallbackText); }
+  }
+
   // ---------------------------------------------------------------------
   // 裝飾用蠟染花紋（比照 quiz.html）
   // ---------------------------------------------------------------------
@@ -302,7 +323,10 @@
     muted = !muted;
     localStorage.setItem(SOUND_KEY, muted ? '1' : '0');
     renderMuteBtn();
-    if (muted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (muted){
+      narrationEl.pause();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
   });
 
   var resultOverlay = document.getElementById('result-overlay');
@@ -418,28 +442,28 @@
 
   // ---- 學習：身體部位 ----
   function renderLearnBody(){
-    var info = BODY[LEARN_BODY_ORDER[learnIndex]];
-    setTargetDiagram(LEARN_BODY_ORDER[learnIndex]);
+    var key = LEARN_BODY_ORDER[learnIndex];
+    var info = BODY[key];
+    setTargetDiagram(key);
     cueIndo.textContent = info.sentence;
     cueZh.textContent = info.zhSentence;
     learnCounter.textContent = (learnIndex + 1) + ' / ' + LEARN_BODY_ORDER.length;
     btnPrev.disabled = learnIndex === 0;
     btnNext.textContent = (learnIndex === LEARN_BODY_ORDER.length - 1) ? '下一關：認識小物品 ›' : '下一個 ›';
-    mascot.classList.add('talking');
-    speak(info.sentence);
+    playNarration('audio/body-' + key + '.mp3', info.sentence);
   }
 
   // ---- 學習：小物品 ----
   function renderLearnObject(){
-    var info = OBJECTS[LEARN_OBJECT_ORDER[learnIndex]];
+    var key = LEARN_OBJECT_ORDER[learnIndex];
+    var info = OBJECTS[key];
     learnIconEl.innerHTML = info.icon;
     cueIndo.textContent = info.sentence;
     cueZh.textContent = info.zhSentence;
     learnCounter.textContent = (learnIndex + 1) + ' / ' + LEARN_OBJECT_ORDER.length;
     btnPrev.disabled = learnIndex === 0;
     btnNext.textContent = (learnIndex === LEARN_OBJECT_ORDER.length - 1) ? '完成暖身 · Selesai ✓' : '下一個 ›';
-    mascot.classList.add('talking');
-    speak(info.sentence);
+    playNarration('audio/object-' + key + '.mp3', info.sentence);
   }
 
   function goNext(){
