@@ -226,6 +226,7 @@
   var TOPIC = 'kebbi/touch';
   var TOPIC_ACTION = 'kebbi/action';
   var TOPIC_SCORE = 'kebbi/score';
+  var TOPIC_START = 'start';
   var STORAGE_KEY = 'kebbi_quiz_mqtt_url';
   var STORAGE_KEY_USER = 'kebbi_quiz_mqtt_user';
   var STORAGE_KEY_PASS = 'kebbi_quiz_mqtt_pass';
@@ -582,6 +583,7 @@
     buildDots();
     resultOverlay.style.display = 'none';
     startOverlay.style.display = 'none';
+    if (isConnected && client) client.publish(TOPIC_START, '遊戲開始');
     renderQuestion();
   }
 
