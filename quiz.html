@@ -583,7 +583,13 @@
     buildDots();
     resultOverlay.style.display = 'none';
     startOverlay.style.display = 'none';
-    if (isConnected && client) client.publish(TOPIC_START, '遊戲開始');
+    // 跟 publishAction() 同樣的理由（見 ROFLOW_NOTES.md 第三章第 10 點）：
+    // 按下按鈕幾乎是瞬間，凱比那邊還沒切到監聽 start 這個節點，
+    // 立刻發送會直接消失收不到，故意延遲讓凱比先準備好。
+    setTimeout(function(){
+      if (!isConnected || !client) return;
+      client.publish(TOPIC_START, '遊戲開始');
+    }, ACTION_PUBLISH_DELAY_MS);
     renderQuestion();
   }
 
