@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>凱比方向控制器</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+  :root{
+    --ink:#182444; --ink-2:#0f1830; --gold:#E7B23D; --terracotta:#C1442B;
+    --teal:#2C9C8F; --cream:#F6EEDD; --cream-dim:rgba(246,238,221,0.62);
+    --good:#4FAE7B;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--ink); color:var(--cream);
+    font-family:'Noto Sans TC',system-ui,sans-serif;
+    display:flex; flex-direction:column; align-items:center; padding:5vh 4vw;
+  }
+  h1{ font-size:clamp(20px,3vw,28px); color:var(--gold); margin:0 0 0.3rem; }
+  p.sub{ color:var(--cream-dim); margin:0 0 1.6rem; font-size:14px; text-align:center; }
+
+  #conn-row{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:0.6rem; }
+  #mqtt-url{
+    width:min(90vw,460px); font-size:14px; padding:0.6rem 0.8rem; border-radius:10px;
+    border:1.5px solid rgba(246,238,221,0.3); background:rgba(246,238,221,0.06);
+    color:var(--cream);
+  }
+  #mqtt-user, #mqtt-pass{
+    font-size:14px; padding:0.6rem 0.8rem; border-radius:10px;
+    border:1.5px solid rgba(246,238,221,0.3); background:rgba(246,238,221,0.06);
+    color:var(--cream); width:180px;
+  }
+  button{
+    font-family:inherit; font-weight:600; border:none; border-radius:999px;
+    padding:0.6rem 1.4rem; cursor:pointer; background:var(--gold); color:var(--ink-2);
+    font-size:14px;
+  }
+  #conn-status{ font-size:13px; font-weight:600; min-height:1.4em; margin-bottom:1.2rem; }
+  #conn-status.ok{ color:var(--teal); }
+  #conn-status.err{ color:var(--terracotta); }
+  #conn-status.pending{ color:var(--gold); }
+
+  #topic-label{ font-size:13px; color:var(--cream-dim); margin-bottom:2rem; text-align:center; line-height:1.8; }
+  #topic-label b{ color:var(--gold); }
+
+  #current-key{
+    font-family:'Noto Sans TC',sans-serif; font-weight:700; font-size:clamp(22px,4.5vw,36px);
+    color:var(--gold); min-height:1.4em; margin-bottom:2rem; text-align:center;
+  }
+  #current-key .action{ color:var(--good); font-size:0.5em; display:block; margin-top:0.3rem; }
+
+  #pad{
+    display:grid; grid-template-columns:repeat(3,72px); grid-template-rows:repeat(2,72px);
+    gap:10px; margin-bottom:1.2rem;
+  }
+  .key{
+    display:flex; align-items:center; justify-content:center; border-radius:14px;
+    border:1.5px solid rgba(246,238,221,0.3); background:rgba(246,238,221,0.06);
+    font-size:22px; font-weight:700; transition:background .1s, border-color .1s;
+  }
+  .key.active{ background:var(--gold); color:var(--ink-2); border-color:var(--gold); }
+  .key.empty{ visibility:hidden; }
+  .key.turn{ font-size:16px; }
+
+  #log{
+    width:min(90vw,480px); max-height:180px; overflow-y:auto; font-size:12px;
+    color:var(--cream-dim); background:rgba(246,238,221,0.05); border-radius:10px;
+    padding:0.7rem 0.9rem; font-family:'SF Mono',monospace; line-height:1.6;
+    margin-top:0.6rem;
+  }
+  #log div:first-child{ color:var(--gold); }
+</style>
+</head>
+<body>
+  <h1>凱比方向控制器</h1>
+  <p class="sub">← / → 持續按著可連續轉向（每 10ms 送一次 15°）<br>W / S 持續按著可連續前進或後退（每 10ms 送一次 10 公分）</p>
+
+  <div id="conn-row">
+    <input id="mqtt-url" type="text" value="wss://55e4cb271a114e0883ea581c498e9f04.s1.eu.hivemq.cloud:8884/mqtt">
+  </div>
+  <div id="conn-row">
+    <input id="mqtt-user" type="text" placeholder="帳號（本地伺服器可留空）" value="kebbi002">
+    <input id="mqtt-pass" type="password" placeholder="密碼（本地伺服器可留空）" value="dJn!cXV4UuRv5jV">
+  </div>
+  <div id="conn-row">
+    <button id="btn-connect">連線</button>
+  </div>
+  <div id="conn-status"></div>
+  <div id="topic-label">
+    前進/後退發布到:<b>&nbsp;topic/action</b>（內容 "w" / "s"）<br>
+    左轉/右轉發布到:<b>&nbsp;topic/angle</b>（內容 "left" / "right"）
+  </div>
+
+  <div id="current-key">（尚未按鍵）</div>
+
+  <div id="pad">
+    <div class="key empty"></div>
+    <div class="key" id="k-w">W</div>
+    <div class="key empty"></div>
+    <div class="key turn" id="k-arrowleft">←</div>
+    <div class="key" id="k-s">S</div>
+    <div class="key turn" id="k-arrowright">→</div>
+  </div>
+
+  <div id="log"><div>訊息紀錄</div></div>
+
+<script>
+(function(){
+  var TOPIC_ACTION = 'topic/action';
+  var TOPIC_ANGLE = 'topic/angle';
+  var REPEAT_MS = 10; // 持續按著時，重複發送的間隔
+
+  // 所有按鍵都採「持續按著就重複發送」的行為
+  var REPEAT_KEYS = {
+    'arrowleft':  { topic: TOPIC_ANGLE,  value: 'left',  zh: '向左轉' },
+    'arrowright': { topic: TOPIC_ANGLE,  value: 'right', zh: '向右轉' },
+    'w':          { topic: TOPIC_ACTION, value: 'w',     zh: '前進' },
+    's':          { topic: TOPIC_ACTION, value: 's',     zh: '後退' }
+  };
+
+  var urlInput = document.getElementById('mqtt-url');
+  var userInput = document.getElementById('mqtt-user');
+  var passInput = document.getElementById('mqtt-pass');
+  var btnConnect = document.getElementById('btn-connect');
+  var connStatus = document.getElementById('conn-status');
+  var currentKeyEl = document.getElementById('current-key');
+  var logEl = document.getElementById('log');
+
+  var client = null;
+  var isConnected = false;
+  var pressedKeys = {};   // 目前按住的鍵，用來顯示畫面 & 避免 keydown 重複觸發
+  var repeatTimers = {};  // 每個按鍵的重複發送計時器
+
+  function setConnStatus(text, cls){
+    connStatus.textContent = text;
+    connStatus.className = cls || '';
+  }
+
+  function logLine(text){
+    var d = document.createElement('div');
+    d.textContent = text;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+    while (logEl.children.length > 30) logEl.removeChild(logEl.children[1]);
+  }
+
+  function enforceSecureScheme(url){
+    // 網頁本身若是 https 環境，瀏覽器會擋掉不安全的 ws://，必須改用 wss://
+    if (location.protocol === 'https:' && url.indexOf('ws://') === 0){
+      var fixed = 'wss://' + url.slice('ws://'.length);
+      logLine('目前網頁是 https，已自動將 ws:// 改為 wss:// → ' + fixed);
+      return fixed;
+    }
+    return url;
+  }
+
+  function connectMqtt(url, username, password){
+    if (!url){ setConnStatus('請先貼上 MQTT 網址', 'err'); return; }
+    url = enforceSecureScheme(url);
+    urlInput.value = url;
+    if (client){ try{ client.end(true); }catch(e){} client = null; }
+    isConnected = false;
+    setConnStatus('連線中…', 'pending');
+    var clientId = 'kebbictl-' + Math.random().toString(16).slice(2, 10);
+    var opts = { clientId: clientId, reconnectPeriod: 3000, connectTimeout: 8000 };
+    if (username) opts.username = username;
+    if (password) opts.password = password;
+    try{
+      client = mqtt.connect(url, opts);
+    }catch(e){
+      setConnStatus('網址格式錯誤，請確認開頭是 ws:// 或 wss://', 'err');
+      return;
+    }
+    client.on('connect', function(){
+      isConnected = true;
+      setConnStatus('已連線 ✅', 'ok');
+    });
+    client.on('reconnect', function(){ setConnStatus('連線中斷，正在重試…', 'pending'); });
+    client.on('close', function(){ if (isConnected) setConnStatus('已斷線，正在重試…', 'pending'); });
+    client.on('error', function(){ isConnected = false; setConnStatus('連線失敗，請確認網址/帳密是否正確', 'err'); });
+  }
+
+  btnConnect.addEventListener('click', function(){
+    connectMqtt(urlInput.value.trim(), userInput.value.trim(), passInput.value);
+  });
+
+  function publish(topic, value){
+    if (!isConnected || !client) return;
+    client.publish(topic, value, { qos: 1 });
+    logLine('→ ' + topic + ' : ' + value);
+  }
+
+  function setKeyVisual(key, active){
+    var el = document.getElementById('k-' + key);
+    if (el) el.classList.toggle('active', active);
+  }
+
+  function updateCurrentKeyDisplay(){
+    var activeKeys = Object.keys(pressedKeys).filter(function(k){ return pressedKeys[k]; });
+    if (activeKeys.length === 0){
+      currentKeyEl.innerHTML = '（尚未按鍵）';
+      return;
+    }
+    var labels = activeKeys.map(function(k){
+      var disp = (k === 'arrowleft') ? '←' : (k === 'arrowright') ? '→' : k.toUpperCase();
+      return disp + '（' + REPEAT_KEYS[k].zh + '）';
+    });
+    currentKeyEl.innerHTML = labels.join(' + ') +
+      '<span class="action">' + activeKeys.map(function(k){ return REPEAT_KEYS[k].topic + ' = ' + REPEAT_KEYS[k].value; }).join(' , ') + '</span>';
+  }
+
+  window.addEventListener('keydown', function(e){
+    var key = e.key.toLowerCase();
+    if (!REPEAT_KEYS[key]) return;
+    e.preventDefault();
+    if (pressedKeys[key]) return; // 長按時瀏覽器會重複觸發 keydown，這裡擋掉重複觸發
+
+    pressedKeys[key] = true;
+    setKeyVisual(key, true);
+    updateCurrentKeyDisplay();
+    publish(REPEAT_KEYS[key].topic, REPEAT_KEYS[key].value); // 立即送一次
+    repeatTimers[key] = setInterval(function(){
+      publish(REPEAT_KEYS[key].topic, REPEAT_KEYS[key].value);
+    }, REPEAT_MS);
+  });
+
+  window.addEventListener('keyup', function(e){
+    var key = e.key.toLowerCase();
+    if (!REPEAT_KEYS[key]) return;
+
+    pressedKeys[key] = false;
+    setKeyVisual(key, false);
+    updateCurrentKeyDisplay();
+
+    if (repeatTimers[key]){
+      clearInterval(repeatTimers[key]);
+      delete repeatTimers[key];
+    }
+  });
+
+  // 視窗失去焦點時，把所有重複發送計時器清掉，避免鍵盤卡住一直送
+  window.addEventListener('blur', function(){
+    Object.keys(repeatTimers).forEach(function(key){
+      clearInterval(repeatTimers[key]);
+      delete repeatTimers[key];
+    });
+    Object.keys(pressedKeys).forEach(function(key){
+      pressedKeys[key] = false;
+      setKeyVisual(key, false);
+    });
+    updateCurrentKeyDisplay();
+  });
+
+  // 頁面載入自動嘗試連線
+  connectMqtt(urlInput.value.trim(), userInput.value.trim(), passInput.value);
+})();
+</script>
+</body>
+</html>
