@@ -163,7 +163,7 @@
   <div class="overlay" id="start-overlay">
     <h1>Pulau Bahasa Jawa</h1>
     <p>暖身學習 · Pemanasan</p>
-    <p style="margin-top:0.6rem;">帶孩子先認識身體部位和小物品的印尼語單字，教完之後再去玩正式問答遊戲！</p>
+    <p style="margin-top:0.6rem;">帶孩子認識身體部位和小物品的印尼語單字，反覆複習更熟悉！</p>
     <input id="mqtt-url" type="text" placeholder="MQTT 網址（區網 ws://、ngrok wss://，或 HiveMQ wss://...:8884/mqtt）" autocomplete="off" autocapitalize="off" spellcheck="false">
     <input id="mqtt-user" type="text" placeholder="帳號（本機/ngrok 不用填，HiveMQ 才需要）" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:0.6rem;">
     <input id="mqtt-pass" type="password" placeholder="密碼（本機/ngrok 不用填，HiveMQ 才需要）" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:0.6rem;">
@@ -177,8 +177,7 @@
     <h1>Pemanasan Selesai!</h1>
     <p>暖身學習完成！</p>
     <p id="result-msg"></p>
-    <button class="btn" id="btn-again">再學一次 · Ulangi</button>
-    <a class="btn ghost" id="btn-to-quiz" href="quiz.html">前往正式問答 »</a>
+    <button class="btn" id="btn-again">再複習一次 · Ulangi</button>
     <button class="btn ghost" id="btn-reconnect-from-result">連線設定</button>
   </div>
 </div>
@@ -509,7 +508,7 @@
     phase = 'done';
     mascot.classList.remove('talking');
     resultMsgEl.textContent = '已經認識了 ' + LEARN_BODY_ORDER.length + ' 個身體部位、' +
-      LEARN_OBJECT_ORDER.length + ' 個小物品！準備好了嗎？來挑戰正式問答吧！';
+      LEARN_OBJECT_ORDER.length + ' 個小物品！可以再複習一次，熟悉這些單字！';
     resultOverlay.style.display = 'flex';
   }
 
