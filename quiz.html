@@ -416,7 +416,7 @@
       if (password) localStorage.setItem(STORAGE_KEY_PASS, password);
       setConnStatus('已連線 ✅', 'ok');
       btnStart.style.display = 'inline-block';
-      client.subscribe(TOPIC, function(err){
+      client.subscribe(TOPIC, { qos: 1 }, function(err){
         if (err) setConnStatus('已連線，但訂閱失敗：' + err.message, 'err');
       });
     });
@@ -476,11 +476,11 @@
     // kebbi/score 送 JSON，Roflow 那邊用「JSON 消息」模式直接抓 score 欄位存成變數
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_SCORE, JSON.stringify({ score: sentence }), { qos: 1 });
+      client.publish(TOPIC_SCORE, JSON.stringify({ score: sentence, score2: score }), { qos: 1 });
     }, EGG_SCORE_DELAY_MS);
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_ACTION, JSON.stringify({ action: tier }), { qos: 1 });
+      client.publish(TOPIC_ACTION, JSON.stringify({ action: tier, tier2: tier }), { qos: 1 });
     }, EGG_TIER_DELAY_MS);
   }
 

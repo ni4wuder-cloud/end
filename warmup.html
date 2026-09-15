@@ -383,7 +383,7 @@
       if (password) localStorage.setItem(STORAGE_KEY_PASS, password);
       setConnStatus('已連線 ✅', 'ok');
       btnStart.style.display = 'inline-block';
-      client.subscribe(TOPIC, function(err){
+      client.subscribe(TOPIC, { qos: 1 }, function(err){
         if (err) setConnStatus('已連線，但訂閱失敗：' + err.message, 'err');
       });
     });
