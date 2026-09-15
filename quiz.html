@@ -470,17 +470,17 @@
     var sentence = '你這次得到 ' + score + ' 分，總共 ' + QUESTION_COUNT + ' 題！';
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_ACTION, 'finished', { qos: 1 });
+      client.publish(TOPIC_ACTION, 'finished', { qos: 1, retain: true });
     }, EGG_FINISHED_DELAY_MS);
     // Roflow「文字消息」比對是要求完全相同，沒辦法比對每次都不一樣的句子，
     // kebbi/score 送 JSON，Roflow 那邊用「JSON 消息」模式直接抓 score 欄位存成變數
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_SCORE, JSON.stringify({ score: sentence, score2: score }), { qos: 1 });
+      client.publish(TOPIC_SCORE, JSON.stringify({ score: sentence, score2: score }), { qos: 1, retain: true });
     }, EGG_SCORE_DELAY_MS);
     setTimeout(function(){
       if (!isConnected || !client) return;
-      client.publish(TOPIC_ACTION, JSON.stringify({ action: tier, tier2: tier }), { qos: 1 });
+      client.publish(TOPIC_ACTION, JSON.stringify({ action: tier, tier2: tier }), { qos: 1, retain: true });
     }, EGG_TIER_DELAY_MS);
   }
 
