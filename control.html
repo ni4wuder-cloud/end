@@ -77,19 +77,19 @@
   <p class="sub">← / → 持續按著可連續轉向（每 10ms 送一次 15°）<br>W / S 持續按著可連續前進或後退（每 10ms 送一次 10 公分）</p>
 
   <div id="conn-row">
-    <input id="mqtt-url" type="text" value="wss://10ad274e0a5147b091678de57af137e8.s1.eu.hivemq.cloud:8884/mqtt">
+    <input id="mqtt-url" type="text" value="wss://public-mqtt.nuwarobotics.com:8084/mqtt">
   </div>
   <div id="conn-row">
-    <input id="mqtt-user" type="text" placeholder="帳號（本地伺服器可留空）" value="weffaefwefwa">
-    <input id="mqtt-pass" type="password" placeholder="密碼（本地伺服器可留空）" value="syqhyj-zizMog-8fodke">
+    <input id="mqtt-user" type="text" placeholder="帳號（本地伺服器可留空）" value="505832b1">
+    <input id="mqtt-pass" type="password" placeholder="密碼（本地伺服器可留空）" value="505832b1/NB1744269288500">
   </div>
   <div id="conn-row">
     <button id="btn-connect">連線</button>
   </div>
   <div id="conn-status"></div>
   <div id="topic-label">
-    前進/後退發布到:<b>&nbsp;topic/action</b>（內容 "w" / "s"）<br>
-    左轉/右轉發布到:<b>&nbsp;topic/angle</b>（內容 "left" / "right"）
+    前進/後退發布到:<b>&nbsp;505832b1/topic/action</b>（內容 "w" / "s"）<br>
+    左轉/右轉發布到:<b>&nbsp;505832b1/topic/角度</b>（內容 "left" / "right"）
   </div>
 
   <div id="current-key">（尚未按鍵）</div>
@@ -107,8 +107,8 @@
 
 <script>
 (function(){
-  var TOPIC_ACTION = 'topic/action';
-  var TOPIC_ANGLE = 'topic/angle';
+  var TOPIC_ACTION = '505832b1/topic/action';
+  var TOPIC_ANGLE = '505832b1/topic/角度';
   var REPEAT_MS = 10; // 持續按著時，重複發送的間隔
 
   // 所有按鍵都採「持續按著就重複發送」的行為
